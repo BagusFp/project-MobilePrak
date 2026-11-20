@@ -215,33 +215,55 @@ class _MyTripScreenState extends State<MyTripScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                    ),
-                    child: Text(
-                      trip.status,
-                      style: const TextStyle(
-                        color: Color(0xFF2E7D32),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                        ),
+                        child: Text(
+                          '${trip.totalDestinations} Destinasi',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                        ),
+                        child: Text(
+                          trip.status,
+                          style: const TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 8),
 
-              // Destinasi Tujuan
+              // Destinasi Tujuan (Multi-Destinasi Summary)
               Row(
                 children: [
-                  const Icon(Icons.place_outlined, size: 16, color: AppColors.primary),
+                  const Icon(Icons.route_outlined, size: 16, color: AppColors.primary),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      trip.destinationName,
+                      trip.destinationsSummary,
                       style: AppTypography.bodySmall.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontWeight: FontWeight.w600,

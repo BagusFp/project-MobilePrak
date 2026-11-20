@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
+import '../../data/models/destination_model.dart';
 import 'map_provider.dart';
 
-/// Halaman Layanan Berbasis Lokasi (LBS) & Peta Sederhana (Modul 7: LBS & Geolocator).
+/// Halaman Layanan Berbasis Lokasi (LBS) & Peta Wisatawan (Modul 7: LBS & Geolocator).
+/// Mendukung inspeksi lokasi pengguna serta tampilan peta destinasi terpilih.
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final DestinationModel? initialDestination;
+
+  const MapScreen({
+    super.key,
+    this.initialDestination,
+  });
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -27,6 +35,14 @@ class _MapScreenState extends State<MapScreen> {
       if (provider.permissionStatus == LocationPermission.always ||
           provider.permissionStatus == LocationPermission.whileInUse) {
         await provider.fetchUserLocation();
+      }
+
+      // Jika dibuka dari detail destinasi tertentu, langsung pusatkan ke koordinat destinasi tersebut
+      if (widget.initialDestination != null) {
+        _mapController.move(
+          LatLng(widget.initialDestination!.latitude, widget.initialDestination!.longitude),
+          14.5,
+        );
       }
     });
   }
@@ -63,13 +79,17 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final mapProv = context.watch<MapProvider>();
     final pos = mapProv.currentPosition;
-    final latLng = mapProv.userLatLng;
+    final userLatLng = mapProv.userLatLng;
     final permission = mapProv.permissionStatus;
+
+    final dest = widget.initialDestination;
+    final destLatLng = dest != null ? LatLng(dest.latitude, dest.longitude) : null;
+    final centerLatLng = destLatLng ?? userLatLng;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Lokasi & LBS Wisatawan'),
+        title: Text(dest != null ? 'Peta: ${dest.name}' : 'Lokasi & LBS Wisatawan'),
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -79,19 +99,21 @@ class _MapScreenState extends State<MapScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: AppColors.primary),
-            tooltip: 'Perbarui Lokasi',
+            tooltip: 'Perbarui Lokasi GPS',
             onPressed: mapProv.isLoading
                 ? null
                 : () async {
                     await mapProv.fetchUserLocation();
-                    _mapController.move(mapProv.userLatLng, 14.5);
+                    if (dest == null) {
+                      _mapController.move(mapProv.userLatLng, 14.5);
+                    }
                   },
           ),
         ],
       ),
       body: Column(
         children: [
-          // 1. Tampilan Peta Interaktif Sederhana (FlutterMap)
+          // 1. Tampilan Peta Interaktif (FlutterMap)
           Expanded(
             flex: 5,
             child: Stack(
@@ -99,8 +121,8 @@ class _MapScreenState extends State<MapScreen> {
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
-                    initialCenter: latLng,
-                    initialZoom: 13.5,
+                    initialCenter: centerLatLng,
+                    initialZoom: dest != null ? 14.5 : 13.5,
                   ),
                   children: [
                     TileLayer(
@@ -109,8 +131,47 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     MarkerLayer(
                       markers: [
+                        // Marker Destinasi (jika tersedia)
+                        if (dest != null && destLatLng != null)
+                          Marker(
+                            point: destLatLng,
+                            width: 150,
+                            height: 68,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: const [
+                                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    dest.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.location_on,
+                                  color: Color(0xFFC62828),
+                                  size: 34,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Marker Lokasi Pengguna (User GPS)
                         Marker(
-                          point: latLng,
+                          point: userLatLng,
                           width: 50,
                           height: 50,
                           child: Column(
@@ -118,7 +179,7 @@ class _MapScreenState extends State<MapScreen> {
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
-                                  color: AppColors.primary,
+                                  color: Color(0xFF1976D2),
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
@@ -141,19 +202,41 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ],
                 ),
-                // Tombol Fokus ke Lokasi Pengguna di Peta
+
+                // Floating Action Buttons di atas Peta
                 Positioned(
                   bottom: 16,
                   right: 16,
-                  child: FloatingActionButton.small(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppColors.primary,
-                    onPressed: () {
-                      _mapController.move(latLng, 14.5);
-                    },
-                    child: const Icon(Icons.my_location),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (destLatLng != null) ...[
+                        FloatingActionButton.small(
+                          heroTag: 'dest_btn',
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFC62828),
+                          tooltip: 'Pusatkan ke Destinasi',
+                          onPressed: () {
+                            _mapController.move(destLatLng, 15.0);
+                          },
+                          child: const Icon(Icons.pin_drop),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      FloatingActionButton.small(
+                        heroTag: 'gps_btn',
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        tooltip: 'Pusatkan ke Lokasi Pengguna',
+                        onPressed: () {
+                          _mapController.move(userLatLng, 14.5);
+                        },
+                        child: const Icon(Icons.my_location),
+                      ),
+                    ],
                   ),
                 ),
+
                 if (mapProv.isLoading)
                   const Positioned(
                     top: 16,
@@ -191,6 +274,67 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Kartu Destinasi Terpilih (jika ada)
+                  if (dest != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF81C784)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.place, color: Color(0xFF2E7D32), size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  dest.name,
+                                  style: AppTypography.titleMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E7D32),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${dest.elevationMdpl} mdpl',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            dest.address,
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Titik Koordinat: ${dest.latitude.toStringAsFixed(6)}, ${dest.longitude.toStringAsFixed(6)}',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: const Color(0xFF1B5E20),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   // Status Permission Card
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -244,7 +388,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Tampilan Koordinat Latitude & Longitude (Modul 7)
+                  // Tampilan Koordinat Pengguna Latitude & Longitude (Modul 7)
                   Row(
                     children: [
                       Expanded(
@@ -259,7 +403,7 @@ class _MapScreenState extends State<MapScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Latitude (Garis Lintang)',
+                                'Latitude (Pengguna)',
                                 style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
                               ),
                               const SizedBox(height: 4),
@@ -287,7 +431,7 @@ class _MapScreenState extends State<MapScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Longitude (Garis Bujur)',
+                                'Longitude (Pengguna)',
                                 style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
                               ),
                               const SizedBox(height: 4),

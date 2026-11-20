@@ -34,12 +34,12 @@ class TripProvider extends ChangeNotifier {
     }
   }
 
-  /// Menambahkan trip baru ke Hive (Create)
+  /// Menambahkan trip baru dengan banyak destinasi ke Hive (Create)
   Future<bool> addTrip({
     required String tripName,
-    required String destinationName,
     required String startDate,
     required double targetBudget,
+    required List<TripDestinationItem> destinations,
     String notes = '',
   }) async {
     _isLoading = true;
@@ -49,13 +49,13 @@ class TripProvider extends ChangeNotifier {
       final newTrip = TripModel(
         id: DateTime.now().millisecondsSinceEpoch,
         tripName: tripName.trim(),
-        destinationName: destinationName.trim(),
         startDate: startDate.trim(),
         targetBudget: targetBudget,
         notes: notes.trim(),
         status: 'Rencana',
         reminderEnabled: true,
         createdAt: DateTime.now().toIso8601String(),
+        destinations: destinations,
       );
 
       await _repository.addTrip(newTrip);

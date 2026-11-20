@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/widgets/app_network_image.dart';
 import '../../data/models/destination_model.dart';
+import '../map/map_screen.dart';
 import '../trip/create_trip_screen.dart';
 import 'destination_provider.dart';
 
@@ -178,12 +181,134 @@ class DestinationDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
 
-                  // Alamat & Lokasi
-                  Text(
-                    'Lokasi & Koordinat',
-                    style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  // Alamat & Lokasi dengan Peta Interaktif (Modul 7: Maps & LBS)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Lokasi & Peta Destinasi',
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MapScreen(initialDestination: destination),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.fullscreen, size: 18),
+                        label: const Text('Buka Peta Penuh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
+
+                  // Container Peta Interaktif Destinasi (FlutterMap)
+                  Container(
+                    height: 220,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.outlineVariant.withAlpha(80)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      children: [
+                        FlutterMap(
+                          options: MapOptions(
+                            initialCenter: LatLng(destination.latitude, destination.longitude),
+                            initialZoom: 14.5,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.meratrip.app',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: LatLng(destination.latitude, destination.longitude),
+                                  width: 140,
+                                  height: 64,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary,
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: const [
+                                            BoxShadow(color: Colors.black26, blurRadius: 4),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          destination.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.location_on,
+                                        color: Color(0xFFC62828),
+                                        size: 32,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        // Badge koordinat di pojok kanan bawah peta
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(230),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black12, blurRadius: 4),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.explore, size: 14, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${destination.latitude.toStringAsFixed(4)}, ${destination.longitude.toStringAsFixed(4)}',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Detail Alamat & Koordinat
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -209,7 +334,7 @@ class DestinationDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Koordinat: ${destination.latitude.toStringAsFixed(4)}, ${destination.longitude.toStringAsFixed(4)}',
+                                'Koordinat: ${destination.latitude.toStringAsFixed(6)}, ${destination.longitude.toStringAsFixed(6)} • ${destination.elevationMdpl} mdpl',
                                 style: AppTypography.labelSmall.copyWith(
                                   color: AppColors.onSurfaceVariant,
                                 ),
@@ -306,7 +431,7 @@ class DestinationDetailScreen extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => CreateTripScreen(
-                              initialDestinationName: destination.name,
+                              initialDestination: destination,
                             ),
                           ),
                         );
