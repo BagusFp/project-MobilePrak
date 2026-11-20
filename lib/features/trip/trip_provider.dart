@@ -86,6 +86,34 @@ class TripProvider extends ChangeNotifier {
     }
   }
 
+  /// Toggle status apakah destinasi dalam trip sudah dikunjungi ("sudah ke situ")
+  Future<bool> toggleDestinationVisited({
+    required int tripId,
+    required int destinationId,
+  }) async {
+    final tripIndex = _trips.indexWhere((t) => t.id == tripId);
+    if (tripIndex == -1) return false;
+
+    final trip = _trips[tripIndex];
+    final updatedDestinations = trip.destinations.map((dest) {
+      if (dest.id == destinationId) {
+        return dest.copyWith(isVisited: !dest.isVisited);
+      }
+      return dest;
+    }).toList();
+
+    // Jika seluruh destinasi sudah dikunjungi, otomatis ubah status trip jadi 'Selesai'
+    final allVisited = updatedDestinations.isNotEmpty &&
+        updatedDestinations.every((d) => d.isVisited);
+
+    final updatedTrip = trip.copyWith(
+      destinations: updatedDestinations,
+      status: allVisited ? 'Selesai' : 'Rencana',
+    );
+
+    return await updateTrip(updatedTrip);
+  }
+
   /// Menghapus trip dari Hive (Delete)
   Future<bool> deleteTrip(int tripId) async {
     _isLoading = true;

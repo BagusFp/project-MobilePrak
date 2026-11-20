@@ -60,6 +60,14 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         TripDestinationItem.fromDestination(widget.initialDestination!),
       ];
     }
+
+    // Pastikan katalog destinasi sudah dimuat dari API
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final destProv = context.read<DestinationProvider>();
+      if (destProv.allDestinations.isEmpty) {
+        destProv.loadDestinations();
+      }
+    });
   }
 
   @override
@@ -98,10 +106,17 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
+        String pickerSearch = '';
         return StatefulBuilder(
           builder: (context, setModalState) {
             final destProvider = context.watch<DestinationProvider>();
-            final availableDestinations = destProvider.allDestinations;
+            final allDestinations = destProvider.allDestinations;
+            final availableDestinations = allDestinations.where((d) {
+              if (pickerSearch.isEmpty) return true;
+              return d.name.toLowerCase().contains(pickerSearch) ||
+                  d.categoryName.toLowerCase().contains(pickerSearch) ||
+                  d.address.toLowerCase().contains(pickerSearch);
+            }).toList();
 
             return DraggableScrollableSheet(
               initialChildSize: 0.75,
@@ -137,11 +152,52 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                         ],
                       ),
                     ),
+                    // Kolom Pencarian Cepat Destinasi
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(AppDimensions.margin, 0, AppDimensions.margin, 8),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Cari destinasi Merapi...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (val) {
+                          setModalState(() {
+                            pickerSearch = val.toLowerCase().trim();
+                          });
+                        },
+                      ),
+                    ),
                     const Divider(height: 1),
                     Expanded(
-                      child: availableDestinations.isEmpty
+                      child: destProvider.isLoading
                           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                          : ListView.builder(
+                          : availableDestinations.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.search_off, size: 40, color: AppColors.outline),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        allDestinations.isEmpty
+                                            ? 'Belum ada data destinasi'
+                                            : 'Destinasi tidak ditemukan',
+                                        style: const TextStyle(color: AppColors.onSurfaceVariant),
+                                      ),
+                                      if (allDestinations.isEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        ElevatedButton(
+                                          onPressed: () => destProvider.loadDestinations(),
+                                          child: const Text('Muat Ulang'),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
                               controller: scrollController,
                               padding: const EdgeInsets.all(AppDimensions.margin),
                               itemCount: availableDestinations.length,

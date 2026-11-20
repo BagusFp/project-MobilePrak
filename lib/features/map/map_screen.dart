@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
@@ -10,7 +11,7 @@ import '../../data/models/destination_model.dart';
 import 'map_provider.dart';
 
 /// Halaman Layanan Berbasis Lokasi (LBS) & Peta Wisatawan (Modul 7: LBS & Geolocator).
-/// Mendukung inspeksi lokasi pengguna serta tampilan peta destinasi terpilih.
+/// Menghubungkan titik lokasi pengguna saat ini ke titik destinasi tujuan dengan garis rute interaktif.
 class MapScreen extends StatefulWidget {
   final DestinationModel? initialDestination;
 
@@ -37,14 +38,48 @@ class _MapScreenState extends State<MapScreen> {
         await provider.fetchUserLocation();
       }
 
-      // Jika dibuka dari detail destinasi tertentu, langsung pusatkan ke koordinat destinasi tersebut
+      // Jika ada destinasi awal, pusatkan peta ke destinasi atau sesuaikan agar keduanya terlihat
       if (widget.initialDestination != null) {
-        _mapController.move(
-          LatLng(widget.initialDestination!.latitude, widget.initialDestination!.longitude),
-          14.5,
-        );
+        final dest = widget.initialDestination!;
+        final destLatLng = LatLng(dest.latitude, dest.longitude);
+        final userLatLng = provider.userLatLng;
+
+        // Pusatkan ke titik tengah antara user dan destinasi jika koordinat berbeda
+        if ((destLatLng.latitude - userLatLng.latitude).abs() > 0.001 ||
+            (destLatLng.longitude - userLatLng.longitude).abs() > 0.001) {
+          _fitUserAndDestination(userLatLng, destLatLng);
+        } else {
+          _mapController.move(destLatLng, 14.5);
+        }
       }
     });
+  }
+
+  void _fitUserAndDestination(LatLng userLatLng, LatLng destLatLng) {
+    try {
+      final bounds = LatLngBounds(userLatLng, destLatLng);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(50),
+        ),
+      );
+    } catch (_) {
+      _mapController.move(destLatLng, 13.5);
+    }
+  }
+
+  Future<void> _openGoogleMapsDirections(double lat, double lng) async {
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak dapat membuka aplikasi Google Maps')),
+        );
+      }
+    }
   }
 
   String _formatPermission(LocationPermission permission) {
@@ -86,10 +121,21 @@ class _MapScreenState extends State<MapScreen> {
     final destLatLng = dest != null ? LatLng(dest.latitude, dest.longitude) : null;
     final centerLatLng = destLatLng ?? userLatLng;
 
+    // Hitung jarak nyata dari lokasi pengguna ke destinasi
+    final double distanceInMeters = destLatLng != null
+        ? Geolocator.distanceBetween(
+            userLatLng.latitude,
+            userLatLng.longitude,
+            destLatLng.latitude,
+            destLatLng.longitude,
+          )
+        : 0.0;
+    final String distanceKm = (distanceInMeters / 1000).toStringAsFixed(1);
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(dest != null ? 'Peta: ${dest.name}' : 'Lokasi & LBS Wisatawan'),
+        title: Text(dest != null ? 'Peta & Rute: ${dest.name}' : 'Lokasi & LBS Wisatawan'),
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -113,7 +159,7 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: Column(
         children: [
-          // 1. Tampilan Peta Interaktif (FlutterMap)
+          // 1. Tampilan Peta Interaktif (FlutterMap) dengan Rute Garis (Polyline)
           Expanded(
             flex: 5,
             child: Stack(
@@ -122,28 +168,44 @@ class _MapScreenState extends State<MapScreen> {
                   mapController: _mapController,
                   options: MapOptions(
                     initialCenter: centerLatLng,
-                    initialZoom: dest != null ? 14.5 : 13.5,
+                    initialZoom: dest != null ? 13.5 : 13.5,
                   ),
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.meratrip.app',
                     ),
+
+                    // Garis Penghubung Rute Titik Saat Ini ke Destinasi (Polyline)
+                    if (destLatLng != null)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: [userLatLng, destLatLng],
+                            strokeWidth: 4.0,
+                            color: const Color(0xFF2E7D32),
+                            borderStrokeWidth: 2.0,
+                            borderColor: Colors.white,
+                          ),
+                        ],
+                      ),
+
+                    // Layer Marker
                     MarkerLayer(
                       markers: [
-                        // Marker Destinasi (jika tersedia)
+                        // Marker Destinasi Tujuan (jika ada)
                         if (dest != null && destLatLng != null)
                           Marker(
                             point: destLatLng,
                             width: 150,
-                            height: 68,
+                            height: 70,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary,
+                                    color: const Color(0xFFC62828),
                                     borderRadius: BorderRadius.circular(10),
                                     boxShadow: const [
                                       BoxShadow(color: Colors.black26, blurRadius: 4),
@@ -163,37 +225,42 @@ class _MapScreenState extends State<MapScreen> {
                                 const Icon(
                                   Icons.location_on,
                                   color: Color(0xFFC62828),
-                                  size: 34,
+                                  size: 36,
                                 ),
                               ],
                             ),
                           ),
 
-                        // Marker Lokasi Pengguna (User GPS)
+                        // Marker Lokasi Terkini Pengguna (GPS)
                         Marker(
                           point: userLatLng,
-                          width: 50,
-                          height: 50,
+                          width: 120,
+                          height: 65,
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF1976D2),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 6,
-                                      offset: Offset(0, 3),
-                                    ),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1976D2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: const [
+                                    BoxShadow(color: Colors.black26, blurRadius: 3),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.person_pin_circle,
-                                  color: Colors.white,
-                                  size: 26,
+                                child: const Text(
+                                  'Lokasi Anda',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
+                              ),
+                              const Icon(
+                                Icons.person_pin_circle,
+                                color: Color(0xFF1976D2),
+                                size: 32,
                               ),
                             ],
                           ),
@@ -203,7 +270,7 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
 
-                // Floating Action Buttons di atas Peta
+                // Floating Action Buttons di atas Peta untuk Kontrol Rute
                 Positioned(
                   bottom: 16,
                   right: 16,
@@ -212,13 +279,20 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       if (destLatLng != null) ...[
                         FloatingActionButton.small(
+                          heroTag: 'fit_route_btn',
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF2E7D32),
+                          tooltip: 'Tampilkan Seluruh Rute',
+                          onPressed: () => _fitUserAndDestination(userLatLng, destLatLng),
+                          child: const Icon(Icons.route),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.small(
                           heroTag: 'dest_btn',
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFFC62828),
                           tooltip: 'Pusatkan ke Destinasi',
-                          onPressed: () {
-                            _mapController.move(destLatLng, 15.0);
-                          },
+                          onPressed: () => _mapController.move(destLatLng, 15.0),
                           child: const Icon(Icons.pin_drop),
                         ),
                         const SizedBox(height: 8),
@@ -226,20 +300,72 @@ class _MapScreenState extends State<MapScreen> {
                       FloatingActionButton.small(
                         heroTag: 'gps_btn',
                         backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                        tooltip: 'Pusatkan ke Lokasi Pengguna',
-                        onPressed: () {
-                          _mapController.move(userLatLng, 14.5);
-                        },
+                        foregroundColor: const Color(0xFF1976D2),
+                        tooltip: 'Pusatkan ke Lokasi Saya',
+                        onPressed: () => _mapController.move(userLatLng, 15.0),
                         child: const Icon(Icons.my_location),
                       ),
                     ],
                   ),
                 ),
 
+                // Indikator Jarak Rute Mengambang (Floating Banner)
+                if (dest != null)
+                  Positioned(
+                    top: 12,
+                    left: 16,
+                    right: 16,
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.directions_car, color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Jarak ke ${dest.name}: $distanceKm km',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => _openGoogleMapsDirections(dest.latitude, dest.longitude),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.open_in_new, size: 12, color: AppColors.primary),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Maps',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                 if (mapProv.isLoading)
                   const Positioned(
-                    top: 16,
+                    top: 60,
                     left: 16,
                     right: 16,
                     child: Center(
@@ -266,7 +392,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 2. Panel Info LBS & Koordinat (Modul 7)
+          // 2. Panel Info LBS, Koordinat, & Panduan Rute (Modul 7)
           Expanded(
             flex: 4,
             child: SingleChildScrollView(
@@ -322,12 +448,25 @@ class _MapScreenState extends State<MapScreen> {
                             style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            'Titik Koordinat: ${dest.latitude.toStringAsFixed(6)}, ${dest.longitude.toStringAsFixed(6)}',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: const Color(0xFF1B5E20),
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Koordinat: ${dest.latitude.toStringAsFixed(6)}, ${dest.longitude.toStringAsFixed(6)}',
+                                style: AppTypography.labelSmall.copyWith(
+                                  color: const Color(0xFF1B5E20),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Jarak: $distanceKm km',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -450,30 +589,56 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Tombol Perbarui Lokasi
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  // Tombol Aksi: Buka Navigasi Luar & Perbarui Lokasi
+                  Row(
+                    children: [
+                      if (dest != null) ...[
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => _openGoogleMapsDirections(dest.latitude, dest.longitude),
+                              icon: const Icon(Icons.navigation_outlined, size: 18),
+                              label: const Text('Buka Maps', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            ),
+                          ),
                         ),
-                        elevation: 0,
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            onPressed: mapProv.isLoading
+                                ? null
+                                : () async {
+                                    await mapProv.fetchUserLocation();
+                                    _mapController.move(mapProv.userLatLng, 14.5);
+                                  },
+                            icon: const Icon(Icons.my_location, size: 18),
+                            label: const Text(
+                              'Update Lokasi',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                        ),
                       ),
-                      onPressed: mapProv.isLoading
-                          ? null
-                          : () async {
-                              await mapProv.fetchUserLocation();
-                              _mapController.move(mapProv.userLatLng, 14.5);
-                            },
-                      icon: const Icon(Icons.my_location),
-                      label: const Text(
-                        'Perbarui Lokasi Pengguna',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),

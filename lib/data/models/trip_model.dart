@@ -1,6 +1,7 @@
 import 'destination_model.dart';
 
 /// Item destinasi di dalam suatu rencana perjalanan (Satu Trip Banyak Destinasi).
+/// Mendukung penandaan status kunjungan ("sudah ke situ").
 class TripDestinationItem {
   final int id;
   final String name;
@@ -12,6 +13,7 @@ class TripDestinationItem {
   final double ticketPrice;
   final String ticketPriceLabel;
   final String address;
+  final bool isVisited; // Status apakah sudah dikunjungi saat trip
 
   const TripDestinationItem({
     required this.id,
@@ -24,6 +26,7 @@ class TripDestinationItem {
     this.ticketPrice = 0.0,
     this.ticketPriceLabel = '',
     this.address = 'Kawasan Merapi, Sleman',
+    this.isVisited = false,
   });
 
   /// Getter alias untuk kategori (OOP Encapsulation)
@@ -42,22 +45,31 @@ class TripDestinationItem {
       ticketPrice: dest.ticketPrice,
       ticketPriceLabel: dest.formattedTicketPrice,
       address: dest.address,
+      isVisited: false,
     );
   }
 
-  /// Deserialisasi dari Map (Hive Local Storage)
-  factory TripDestinationItem.fromMap(Map<dynamic, dynamic> map) {
+  /// Deserialisasi dari Map secara aman & toleran (Hive Local Storage)
+  factory TripDestinationItem.fromMap(Map map) {
     return TripDestinationItem(
-      id: map['id'] as int? ?? 0,
-      name: map['name'] as String? ?? 'Destinasi Merapi',
-      categoryName: map['category_name'] as String? ?? 'Wisata Alam',
-      imageUrl: map['image_url'] as String?,
-      latitude: (map['latitude'] as num?)?.toDouble() ?? -7.5833,
-      longitude: (map['longitude'] as num?)?.toDouble() ?? 110.4422,
-      elevationMdpl: map['elevation_mdpl'] as int? ?? 800,
-      ticketPrice: (map['ticket_price'] as num?)?.toDouble() ?? 0.0,
-      ticketPriceLabel: map['ticket_price_label'] as String? ?? '',
-      address: map['address'] as String? ?? 'Kawasan Merapi, Sleman',
+      id: map['id'] is num
+          ? (map['id'] as num).toInt()
+          : (int.tryParse(map['id']?.toString() ?? '') ?? 0),
+      name: map['name']?.toString() ?? 'Destinasi Merapi',
+      categoryName: (map['category_name'] ?? map['category'])?.toString() ?? 'Wisata Alam',
+      imageUrl: map['image_url']?.toString(),
+      latitude: (map['latitude'] as num?)?.toDouble() ??
+          (double.tryParse(map['latitude']?.toString() ?? '') ?? -7.5833),
+      longitude: (map['longitude'] as num?)?.toDouble() ??
+          (double.tryParse(map['longitude']?.toString() ?? '') ?? 110.4422),
+      elevationMdpl: map['elevation_mdpl'] is num
+          ? (map['elevation_mdpl'] as num).toInt()
+          : (int.tryParse(map['elevation_mdpl']?.toString() ?? '') ?? 800),
+      ticketPrice: (map['ticket_price'] as num?)?.toDouble() ??
+          (double.tryParse(map['ticket_price']?.toString() ?? '') ?? 0.0),
+      ticketPriceLabel: map['ticket_price_label']?.toString() ?? '',
+      address: map['address']?.toString() ?? 'Kawasan Merapi, Sleman',
+      isVisited: map['is_visited'] == true || map['is_visited'] == 1 || map['is_visited'] == 'true',
     );
   }
 
@@ -66,7 +78,7 @@ class TripDestinationItem {
     return DestinationModel(
       id: id,
       name: name,
-      description: 'Destinasi wisata terpilih di lereng Merapi.',
+      description: 'Destinasi wisata lereng Gunung Merapi.',
       categoryId: 1,
       categoryName: categoryName,
       latitude: latitude,
@@ -91,7 +103,36 @@ class TripDestinationItem {
       'ticket_price': ticketPrice,
       'ticket_price_label': ticketPriceLabel,
       'address': address,
+      'is_visited': isVisited,
     };
+  }
+
+  TripDestinationItem copyWith({
+    int? id,
+    String? name,
+    String? categoryName,
+    String? imageUrl,
+    double? latitude,
+    double? longitude,
+    int? elevationMdpl,
+    double? ticketPrice,
+    String? ticketPriceLabel,
+    String? address,
+    bool? isVisited,
+  }) {
+    return TripDestinationItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      categoryName: categoryName ?? this.categoryName,
+      imageUrl: imageUrl ?? this.imageUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      elevationMdpl: elevationMdpl ?? this.elevationMdpl,
+      ticketPrice: ticketPrice ?? this.ticketPrice,
+      ticketPriceLabel: ticketPriceLabel ?? this.ticketPriceLabel,
+      address: address ?? this.address,
+      isVisited: isVisited ?? this.isVisited,
+    );
   }
 }
 
@@ -138,6 +179,13 @@ class TripModel {
 
   int get totalDestinations => destinations.length;
 
+  /// Jumlah destinasi yang sudah dikunjungi ("sudah ke situ")
+  int get visitedCount => destinations.where((d) => d.isVisited).length;
+
+  /// Persentase penyelesaian trip (0.0 s/d 1.0)
+  double get progressPercent =>
+      destinations.isEmpty ? 0.0 : visitedCount / destinations.length;
+
   /// Nama destinasi ringkas (untuk kompatibilitas tampilan kartu lama)
   String get destinationName {
     if (destinations.isEmpty) return 'Belum ada destinasi dipilih';
@@ -152,17 +200,21 @@ class TripModel {
   }
 
   /// Named Constructor untuk deserialisasi dari Map/Hive Box (Modul 6)
-  /// Menyediakan migrasi & backward-compatibility penuh untuk data lama.
-  factory TripModel.fromMap(Map<dynamic, dynamic> map) {
+  /// Menyediakan toleransi penuh dan pencegahan type cast error.
+  factory TripModel.fromMap(Map map) {
     List<TripDestinationItem> parsedDestinations = [];
 
     if (map['destinations'] is List) {
-      parsedDestinations = (map['destinations'] as List)
-          .map((item) => TripDestinationItem.fromMap(item as Map<dynamic, dynamic>))
-          .toList();
-    } else if (map['destination_name'] is String && (map['destination_name'] as String).isNotEmpty) {
+      for (var item in (map['destinations'] as List)) {
+        if (item is Map) {
+          try {
+            parsedDestinations.add(TripDestinationItem.fromMap(Map.from(item)));
+          } catch (_) {}
+        }
+      }
+    } else if (map['destination_name'] != null && map['destination_name'].toString().isNotEmpty) {
       // Mekanisme kompatibilitas: konversi data format lama ke list destinasi
-      final oldDestName = map['destination_name'] as String;
+      final oldDestName = map['destination_name'].toString();
       parsedDestinations = [
         TripDestinationItem(
           id: 1,
@@ -175,14 +227,17 @@ class TripModel {
     }
 
     return TripModel(
-      id: map['id'] as int? ?? DateTime.now().millisecondsSinceEpoch,
-      tripName: map['trip_name'] as String? ?? 'Trip Merapi',
-      startDate: map['start_date'] as String? ?? 'Segera',
-      targetBudget: (map['target_budget'] as num?)?.toDouble() ?? 250000.0,
-      notes: map['notes'] as String? ?? '',
-      status: map['status'] as String? ?? 'Rencana',
-      reminderEnabled: map['reminder_enabled'] as bool? ?? true,
-      createdAt: map['created_at'] as String? ?? DateTime.now().toIso8601String(),
+      id: map['id'] is num
+          ? (map['id'] as num).toInt()
+          : (int.tryParse(map['id']?.toString() ?? '') ?? DateTime.now().millisecondsSinceEpoch),
+      tripName: map['trip_name']?.toString() ?? 'Trip Merapi',
+      startDate: map['start_date']?.toString() ?? 'Segera',
+      targetBudget: (map['target_budget'] as num?)?.toDouble() ??
+          (double.tryParse(map['target_budget']?.toString() ?? '') ?? 250000.0),
+      notes: map['notes']?.toString() ?? '',
+      status: map['status']?.toString() ?? 'Rencana',
+      reminderEnabled: map['reminder_enabled'] == true,
+      createdAt: map['created_at']?.toString() ?? DateTime.now().toIso8601String(),
       destinations: parsedDestinations,
     );
   }

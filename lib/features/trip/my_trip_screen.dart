@@ -274,6 +274,33 @@ class _MyTripScreenState extends State<MyTripScreen> {
                   ),
                 ],
               ),
+              if (trip.totalDestinations > 0) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      trip.visitedCount == trip.totalDestinations && trip.totalDestinations > 0
+                          ? Icons.check_circle
+                          : Icons.checklist_rtl,
+                      size: 14,
+                      color: trip.visitedCount == trip.totalDestinations && trip.totalDestinations > 0
+                          ? const Color(0xFF2E7D32)
+                          : AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${trip.visitedCount}/${trip.totalDestinations} tempat sudah ke situ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: trip.visitedCount == trip.totalDestinations && trip.totalDestinations > 0
+                            ? const Color(0xFF2E7D32)
+                            : AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 6),
 
               // Tanggal & Anggaran

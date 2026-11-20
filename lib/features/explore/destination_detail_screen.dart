@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/widgets/app_network_image.dart';
 import '../../data/models/destination_model.dart';
+import '../map/map_provider.dart';
 import '../map/map_screen.dart';
 import '../trip/create_trip_screen.dart';
 import 'destination_provider.dart';
@@ -25,6 +28,17 @@ class DestinationDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final destProvider = context.watch<DestinationProvider>();
     final isFav = destProvider.isFavorite(destination.id);
+    final mapProv = context.watch<MapProvider>();
+    final userLatLng = mapProv.userLatLng;
+    final destLatLng = LatLng(destination.latitude, destination.longitude);
+
+    final double distanceInMeters = Geolocator.distanceBetween(
+      userLatLng.latitude,
+      userLatLng.longitude,
+      destLatLng.latitude,
+      destLatLng.longitude,
+    );
+    final String distanceKm = (distanceInMeters / 1000).toStringAsFixed(1);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -209,7 +223,7 @@ class DestinationDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  // Container Peta Interaktif Destinasi (FlutterMap)
+                  // Container Peta Interaktif Destinasi & Rute Pengguna (FlutterMap)
                   Container(
                     height: 220,
                     decoration: BoxDecoration(
@@ -228,18 +242,31 @@ class DestinationDetailScreen extends StatelessWidget {
                       children: [
                         FlutterMap(
                           options: MapOptions(
-                            initialCenter: LatLng(destination.latitude, destination.longitude),
-                            initialZoom: 14.5,
+                            initialCenter: destLatLng,
+                            initialZoom: 14.0,
                           ),
                           children: [
                             TileLayer(
                               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                               userAgentPackageName: 'com.meratrip.app',
                             ),
+                            // Garis Rute dari Lokasi Pengguna ke Destinasi
+                            PolylineLayer(
+                              polylines: [
+                                Polyline(
+                                  points: [userLatLng, destLatLng],
+                                  strokeWidth: 3.5,
+                                  color: const Color(0xFF2E7D32),
+                                  borderStrokeWidth: 1.5,
+                                  borderColor: Colors.white,
+                                ),
+                              ],
+                            ),
                             MarkerLayer(
                               markers: [
+                                // Marker Destinasi
                                 Marker(
-                                  point: LatLng(destination.latitude, destination.longitude),
+                                  point: destLatLng,
                                   width: 140,
                                   height: 64,
                                   child: Column(
@@ -248,7 +275,7 @@ class DestinationDetailScreen extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary,
+                                          color: const Color(0xFFC62828),
                                           borderRadius: BorderRadius.circular(10),
                                           boxShadow: const [
                                             BoxShadow(color: Colors.black26, blurRadius: 4),
@@ -273,9 +300,57 @@ class DestinationDetailScreen extends StatelessWidget {
                                     ],
                                   ),
                                 ),
+
+                                // Marker Lokasi Terkini Pengguna
+                                Marker(
+                                  point: userLatLng,
+                                  width: 90,
+                                  height: 50,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF1976D2),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Lokasi Anda',
+                                          style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      const Icon(Icons.person_pin_circle, color: Color(0xFF1976D2), size: 24),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ],
+                        ),
+                        // Badge Jarak Rute dari Lokasi Pengguna
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(240),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.near_me, size: 14, color: Color(0xFF2E7D32)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$distanceKm km dari Anda',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         // Badge koordinat di pojok kanan bawah peta
                         Positioned(
@@ -305,6 +380,52 @@ class DestinationDetailScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Tombol Aksi Cepat Peta & Rute
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MapScreen(initialDestination: destination),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.map, size: 16),
+                          label: const Text('Buka Peta & Rute', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1976D2),
+                            side: const BorderSide(color: Color(0xFF1976D2)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onPressed: () async {
+                            final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            }
+                          },
+                          icon: const Icon(Icons.navigation_outlined, size: 16),
+                          label: const Text('Google Maps', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
 
