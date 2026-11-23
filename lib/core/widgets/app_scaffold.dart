@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
-import 'status_badge.dart';
 
 class AppScaffold extends StatelessWidget {
   final Widget body;
@@ -12,7 +11,6 @@ class AppScaffold extends StatelessWidget {
   final List<Widget>? actions;
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
-  final bool showVolcanoStatusBar;
 
   const AppScaffold({
     super.key,
@@ -24,7 +22,7 @@ class AppScaffold extends StatelessWidget {
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
-    this.showVolcanoStatusBar = false,
+    bool showVolcanoStatusBar = false,
   });
 
   @override
@@ -83,39 +81,6 @@ class AppScaffold extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
-              bottom: showVolcanoStatusBar
-                  ? PreferredSize(
-                      preferredSize: Size.fromHeight(
-                        MediaQuery.textScalerOf(context).scale(34.0).clamp(32.0, 52.0),
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                        width: double.infinity,
-                        color: AppColors.volcanoStatusWaspadaBg.withAlpha(180),
-                        child: Row(
-                          children: [
-                            const StatusBadge(
-                              label: 'Merapi Level II (Waspada)',
-                              type: VolcanicStatusType.waspada,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Jalur wisata Kaliurang & sekitarnya aman terkendali',
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.volcanoStatusWaspada,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : null,
             )
           : null,
       body: SafeArea(

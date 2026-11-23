@@ -5,7 +5,6 @@ import '../../core/services/api_service.dart';
 import '../../core/utils/geo_helper.dart';
 import '../../data/mock/mock_destinations.dart';
 import '../../data/models/destination_model.dart';
-import '../../data/models/offline_pack_model.dart';
 
 class MapProvider extends ChangeNotifier {
   // State Navigasi & Map
@@ -37,48 +36,6 @@ class MapProvider extends ChangeNotifier {
   List<DestinationModel> _osmSearchResults = [];
   String _searchQuery = '';
 
-  // Paket Data Peta Offline (Sesuai Stitch Screen 9)
-  List<OfflinePackModel> _offlinePacks = [
-    const OfflinePackModel(
-      id: 1,
-      name: 'Kaliadem & Cangkringan',
-      sizeMb: 18.4,
-      downloadedMb: 18.4,
-      status: 'downloaded',
-      badgeLabel: 'Lengkap',
-      iconType: 'terrain',
-    ),
-    const OfflinePackModel(
-      id: 2,
-      name: 'Kaliurang & Plunyon',
-      sizeMb: 15.8,
-      downloadedMb: 15.8,
-      status: 'downloaded',
-      badgeLabel: 'Lengkap',
-      iconType: 'forest',
-    ),
-    const OfflinePackModel(
-      id: 3,
-      name: 'Jalur Boyolali & Selo',
-      sizeMb: 12.1,
-      downloadedMb: 8.2,
-      status: 'downloading',
-      badgeLabel: 'Mengunduh 68%',
-      iconType: 'downloading',
-      speedText: '1.4 MB/s • Sisa ~3 dtk',
-    ),
-    const OfflinePackModel(
-      id: 4,
-      name: 'Geowisata Bebeng & Klangon',
-      sizeMb: 9.5,
-      downloadedMb: 0.0,
-      status: 'failed',
-      badgeLabel: 'Koneksi Terputus',
-      iconType: 'cloud_off',
-      errorMessage: 'Sinyal seluler tidak stabil saat mengunduh tile peta.',
-    ),
-  ];
-
   MapProvider() {
     // Default seleksi: Bunker Kaliadem
     if (MockDestinations.destinations.isNotEmpty) {
@@ -94,7 +51,6 @@ class MapProvider extends ChangeNotifier {
   bool get isBatterySaver => _isBatterySaver;
   bool get isGpsAccurate => _isGpsAccurate;
   bool get isWifiOnly => _isWifiOnly;
-  List<OfflinePackModel> get offlinePacks => _offlinePacks;
 
   bool get isLocating => _isLocating;
   bool get hasLiveGpsFix => _hasLiveGpsFix;
@@ -112,22 +68,6 @@ class MapProvider extends ChangeNotifier {
   bool get isSearchingOsm => _isSearchingOsm;
   List<DestinationModel> get osmSearchResults => _osmSearchResults;
   String get searchQuery => _searchQuery;
-
-  double get allocatedStorageMb => 512.0;
-
-  double get totalDownloadedMb {
-    double total = 0.0;
-    for (final pack in _offlinePacks) {
-      if (pack.status == 'downloaded' || pack.status == 'downloading') {
-        total += pack.downloadedMb;
-      }
-    }
-    return total;
-  }
-
-  double get usagePercent {
-    return (totalDownloadedMb / allocatedStorageMb) * 100.0;
-  }
 
   /// Destinasi yang diurutkan berdasarkan kedekatan LBS dengan pengguna
   List<DestinationModel> get destinationsSortedByDistance {
@@ -251,112 +191,6 @@ class MapProvider extends ChangeNotifier {
   /// Beralih gaya tampilan peta OpenStreetMap
   void setMapStyle(String style) {
     _mapStyle = style;
-    notifyListeners();
-  }
-
-  /// Jeda proses unduhan paket peta
-  void pauseDownload(int packId) {
-    final index = _offlinePacks.indexWhere((p) => p.id == packId);
-    if (index != -1) {
-      final pack = _offlinePacks[index];
-      _offlinePacks[index] = pack.copyWith(
-        status: 'paused',
-        badgeLabel: 'Dijeda',
-        speedText: 'Unduhan dijeda',
-      );
-      notifyListeners();
-    }
-  }
-
-  /// Lanjutkan unduhan paket peta
-  void resumeDownload(int packId) {
-    final index = _offlinePacks.indexWhere((p) => p.id == packId);
-    if (index != -1) {
-      final pack = _offlinePacks[index];
-      _offlinePacks[index] = pack.copyWith(
-        status: 'downloading',
-        badgeLabel: 'Mengunduh ${pack.progressPercent}%',
-        speedText: '1.4 MB/s • Sisa ~3 dtk',
-      );
-      notifyListeners();
-    }
-  }
-
-  /// Coba lagi unduh paket yang gagal
-  void retryDownload(int packId) {
-    final index = _offlinePacks.indexWhere((p) => p.id == packId);
-    if (index != -1) {
-      final pack = _offlinePacks[index];
-      _offlinePacks[index] = pack.copyWith(
-        status: 'downloading',
-        downloadedMb: 4.5,
-        badgeLabel: 'Mengunduh 47%',
-        iconType: 'downloading',
-        errorMessage: null,
-        speedText: '1.8 MB/s • Sisa ~4 dtk',
-      );
-      notifyListeners();
-    }
-  }
-
-  /// Hapus paket data peta offline
-  void deletePack(int packId) {
-    final index = _offlinePacks.indexWhere((p) => p.id == packId);
-    if (index != -1) {
-      final pack = _offlinePacks[index];
-      _offlinePacks[index] = pack.copyWith(
-        status: 'not_downloaded',
-        downloadedMb: 0.0,
-        badgeLabel: 'Tersedia',
-        speedText: null,
-      );
-      notifyListeners();
-    }
-  }
-
-  /// Perbarui paket data peta
-  void updatePack(int packId) {
-    final index = _offlinePacks.indexWhere((p) => p.id == packId);
-    if (index != -1) {
-      final pack = _offlinePacks[index];
-      _offlinePacks[index] = pack.copyWith(
-        downloadedMb: pack.sizeMb,
-        status: 'downloaded',
-        badgeLabel: 'Terbaru',
-      );
-      notifyListeners();
-    }
-  }
-
-  /// Bersihkan seluruh cache peta offline
-  void cleanCache() {
-    _offlinePacks = _offlinePacks.map((pack) {
-      if (pack.id == 1 || pack.id == 2) {
-        // Pertahankan 1 pack dasar
-        return pack;
-      }
-      return pack.copyWith(
-        status: 'not_downloaded',
-        downloadedMb: 0.0,
-        badgeLabel: 'Tersedia',
-        speedText: null,
-      );
-    }).toList();
-    notifyListeners();
-  }
-
-  /// Unduh seluruh paket kawasan Merapi
-  void downloadAllPacks() {
-    _offlinePacks = _offlinePacks.map((pack) {
-      return pack.copyWith(
-        status: 'downloaded',
-        downloadedMb: pack.sizeMb,
-        badgeLabel: 'Lengkap',
-        iconType: pack.id == 1 ? 'terrain' : (pack.id == 2 ? 'forest' : 'terrain'),
-        errorMessage: null,
-        speedText: null,
-      );
-    }).toList();
     notifyListeners();
   }
 
