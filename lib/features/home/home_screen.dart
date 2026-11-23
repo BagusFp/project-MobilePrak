@@ -3,15 +3,13 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
-import '../../core/widgets/app_network_image.dart';
 import '../auth/auth_provider.dart';
 import '../explore/destination_detail_screen.dart';
 import '../explore/destination_provider.dart';
 import '../map/map_screen.dart';
-import '../notification/notification_screen.dart';
+import '../sensor/sensor_compass_screen.dart';
 import '../trip/create_trip_screen.dart';
 
-/// Halaman Beranda (Home) Aplikasi MeraTrip (Modul 2, 3: State & Data, Modul 4: Navigation).
 class HomeScreen extends StatelessWidget {
   final Function(int tabIndex)? onNavigateTab;
 
@@ -27,23 +25,23 @@ class HomeScreen extends StatelessWidget {
     final user = auth.currentUser;
     final userName = user != null && user.name.trim().isNotEmpty
         ? user.name.trim().toUpperCase()
-        : 'WISATAWAN';
+        : 'USER';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(bottom: 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Header Greeting Section
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppDimensions.margin,
-                  AppDimensions.spaceMd,
-                  AppDimensions.margin,
-                  AppDimensions.spaceMd,
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  top: AppDimensions.spaceMd,
+                  bottom: AppDimensions.spaceMd,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +59,7 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Mau menjelajah Merapi?',
-                      style: AppTypography.headlineMedium.copyWith(
+                      style: AppTypography.headlineLg.copyWith(
                         color: AppColors.onSurface,
                         fontWeight: FontWeight.bold,
                       ),
@@ -69,7 +67,7 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Rencanakan petualangan wisatamu dengan cerdas & aman.',
-                      style: AppTypography.bodySmall.copyWith(
+                      style: AppTypography.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
@@ -79,7 +77,11 @@ class HomeScreen extends StatelessWidget {
 
               // 2. Status Aktivitas Merapi Card
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  bottom: AppDimensions.spaceLg,
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(AppDimensions.spaceMd),
                   decoration: BoxDecoration(
@@ -88,6 +90,7 @@ class HomeScreen extends StatelessWidget {
                     border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         width: 44,
@@ -96,10 +99,12 @@ class HomeScreen extends StatelessWidget {
                           color: const Color(0xFFE89005),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.warning_amber_rounded,
-                          color: Colors.white,
-                          size: 26,
+                        child: const Center(
+                          child: Icon(
+                            Icons.warning_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -107,22 +112,29 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'STATUS AKTIVITAS',
-                                style: TextStyle(
-                                  color: Color(0xFFB45309),
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFFF59E0B).withAlpha(80)),
+                                  ),
+                                  child: const Text(
+                                    'STATUS AKTIVITAS',
+                                    style: TextStyle(
+                                      color: Color(0xFFB45309),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               'Merapi Level II (Waspada)',
                               style: AppTypography.titleMedium.copyWith(
@@ -130,12 +142,26 @@ class HomeScreen extends StatelessWidget {
                                 color: AppColors.onSurface,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Kawasan wisata Kaliurang & Cangkringan terpantau aman.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                            const SizedBox(height: 4),
+                            RichText(
+                              text: TextSpan(
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 12,
+                                  height: 1.35,
+                                ),
+                                children: const [
+                                  TextSpan(
+                                    text: 'Jalur wisata Kaliurang & Cangkringan terpantau dalam ',
+                                  ),
+                                  TextSpan(
+                                    text: 'zona aman.',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.onSurface,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -145,150 +171,145 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
 
-              // 3. Grid Menu Shortcut Navigasi Utama (Modul 2: Grid/Row Layout, Modul 4: Navigator)
+              // 4. Utilitas Navigasi & LBS Lapangan (Modul 7 LBS & Peta)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  bottom: AppDimensions.spaceLg,
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      'MENU UTAMA',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: AppColors.outline,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
+                    Expanded(
+                      child: _buildUtilityCard(
+                        context: context,
+                        icon: Icons.map_outlined,
+                        iconBgColor: const Color(0xFFD7F5E5),
+                        iconColor: const Color(0xFF04432F),
+                        title: 'Peta Merapi',
+                        subtitle: 'Rute & Jalur',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MapScreen()),
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        // Shortcut 1: Explore Destinasi
-                        Expanded(
-                          child: _buildShortcutCard(
-                            context: context,
-                            icon: Icons.explore_outlined,
-                            iconColor: const Color(0xFF04432F),
-                            iconBgColor: const Color(0xFFD7F5E5),
-                            title: 'Explore',
-                            subtitle: 'Daftar Wisata',
-                            onTap: () {
-                              if (onNavigateTab != null) {
-                                onNavigateTab!(1);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Shortcut 2: My Trip (Kelola Perjalanan)
-                        Expanded(
-                          child: _buildShortcutCard(
-                            context: context,
-                            icon: Icons.luggage_outlined,
-                            iconColor: const Color(0xFF1E88E5),
-                            iconBgColor: const Color(0xFFE3F2FD),
-                            title: 'My Trip',
-                            subtitle: 'Rencana Trip',
-                            onTap: () {
-                              if (onNavigateTab != null) {
-                                onNavigateTab!(2);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        // Shortcut 3: Lokasi & LBS
-                        Expanded(
-                          child: _buildShortcutCard(
-                            context: context,
-                            icon: Icons.location_on_outlined,
-                            iconColor: const Color(0xFFE65100),
-                            iconBgColor: const Color(0xFFFFF3E0),
-                            title: 'Lokasi & LBS',
-                            subtitle: 'Koordinat GPS',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const MapScreen()),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Shortcut 4: Notifikasi
-                        Expanded(
-                          child: _buildShortcutCard(
-                            context: context,
-                            icon: Icons.notifications_none_rounded,
-                            iconColor: const Color(0xFF6A1B9A),
-                            iconBgColor: const Color(0xFFF3E5F5),
-                            title: 'Notifikasi',
-                            subtitle: 'Pengingat Wisata',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const NotificationScreen()),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildUtilityCard(
+                        context: context,
+                        icon: Icons.explore_outlined,
+                        iconBgColor: const Color(0xFFFEF3C7),
+                        iconColor: const Color(0xFFB45309),
+                        title: 'Kompas',
+                        subtitle: 'Arah Merapi',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SensorCompassScreen()),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
 
-              // 4. Perencana Trip Cepat Card
+              // 5. Perencana Trip Instan Card
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  bottom: AppDimensions.spaceLg,
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(AppDimensions.spaceMd),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.outlineVariant.withAlpha(80)),
+                    border: Border.all(color: AppColors.surfaceContainer.withAlpha(120)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.onSurface.withAlpha(6),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD7F5E5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.auto_awesome_motion_rounded,
+                                    color: Color(0xFF04432F),
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Perencana Trip Instan',
+                                    style: AppTypography.titleMedium.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: const Icon(Icons.add_task_rounded, color: AppColors.primary, size: 20),
                           ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Buat Rencana Trip Baru',
-                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD7F5E5),
+                              borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                            ),
+                            child: Text(
+                              'Smart Planner',
+                              style: AppTypography.labelSmall.copyWith(
+                                color: const Color(0xFF04432F),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
-                        'Rencanakan destinasi lereng Merapi dan simpan anggaran secara lokal dengan Hive.',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant),
+                        'Buat rencana trip terstruktur dengan personalisasi budget awal, konversi valuta & zona waktu.',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          height: 1.4,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
-                        height: 44,
+                        height: 46,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppColors.onPrimary,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             elevation: 0,
                           ),
@@ -298,24 +319,33 @@ class HomeScreen extends StatelessWidget {
                               MaterialPageRoute(builder: (_) => const CreateTripScreen()),
                             );
                           },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Mulai Rencana Trip', style: TextStyle(fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.add, size: 20),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Buat Perencanaan Trip Baru',
+                              style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
 
-              // 5. Section Header: Rekomendasi Destinasi Utama
+              // 7. Section Header: Rekomendasi Utama
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  bottom: AppDimensions.spaceSm,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'REKOMENDASI DESTINASI',
+                      'REKOMENDASI UTAMA',
                       style: AppTypography.labelSmall.copyWith(
                         color: AppColors.outline,
                         fontWeight: FontWeight.bold,
@@ -324,106 +354,203 @@ class HomeScreen extends StatelessWidget {
                     ),
                     InkWell(
                       onTap: () => onNavigateTab?.call(1),
-                      child: Text(
-                        'Lihat Semua',
-                        style: AppTypography.labelMedium.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Text(
+                          'Lihat Semua',
+                          style: AppTypography.labelMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
 
-              // 6. Horizontal List Rekomendasi Destinasi (Modul 2: ListView.builder horizontal)
-              SizedBox(
-                height: 220,
-                child: destProvider.allDestinations.isEmpty
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                    : ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-                        itemCount: destProvider.allDestinations.take(5).length,
-                        itemBuilder: (context, index) {
-                          final dest = destProvider.allDestinations[index];
-                          return Container(
-                            width: 220,
-                            margin: const EdgeInsets.only(right: 14),
-                            child: Card(
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(color: AppColors.outlineVariant.withAlpha(80)),
+              // 8. Hero Destination Card (Kaliadem & Merapi View)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.margin,
+                  right: AppDimensions.margin,
+                  bottom: AppDimensions.spaceLg,
+                ),
+                child: InkWell(
+                  onTap: () {
+                    if (destProvider.allDestinations.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DestinationDetailScreen(
+                            destination: destProvider.allDestinations.first,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Image.network(
+                              'https://lh3.googleusercontent.com/aida-public/AB6AXuD__JTBQcN2VsrNHKnYZ3FxiZdpsu2-fckBgW-YFTPB2_IwRsWRTY0ZzPK3EY0nOTR9Jaut-9xVIAY7bJ0r5GeR5Bp6WKDYOBF8nqbDwSw2iRpvqT-lu6DRI-DJ3fgMNSdprlLU4CPEld1KWrAocN1GBaG6J3iyYnlEw9_cvpKjcZAeSyY_sWN4k8zIzEvVJH4PvHj12yNDoQ4qetdwZJVqvmwcvyYcl_Kf_2lp-GWVsts1KsPJGgk',
+                              fit: BoxFit.cover,
+                              cacheWidth: 800,
+                              errorBuilder: (_, _, _) => Container(
+                                color: AppColors.primaryContainer,
+                                child: const Center(
+                                  child: Icon(Icons.landscape, size: 60, color: AppColors.onPrimary),
+                                ),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              color: AppColors.surfaceContainerLowest,
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => DestinationDetailScreen(destination: dest),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withAlpha(20),
+                                    Colors.black.withAlpha(70),
+                                    Colors.black.withAlpha(200),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 14,
+                            left: 14,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00C853),
+                                    borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                                  ),
+                                  child: const Text(
+                                    'SPOT UTAMA',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.3,
                                     ),
-                                  );
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withAlpha(120),
+                                    borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.terrain_rounded, size: 12, color: Colors.white),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '1.100 mdpl',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 12,
+                            left: 14,
+                            right: 14,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Kawasan Wisata Kaliadem & Merapi View',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.headlineSm.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Pemandangan lanskap megah puncak Merapi dengan rute jeep menantang.',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: Colors.white.withAlpha(220),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    AppNetworkImage(
-                                      imageUrl: dest.imageUrl,
-                                      height: 120,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
+                                    Expanded(
+                                      child: Text(
+                                        'Tiket: Rp 10.000 / org',
+                                        style: AppTypography.labelMedium.copyWith(
+                                          color: const Color(0xFF69F0AE),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(10),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
                                           Text(
-                                            dest.name,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                            'Detail',
+                                            style: TextStyle(
+                                              color: Color(0xFF04432F),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                            ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Flexible(
-                                                child: Text(
-                                                  ' mdpl',
-                                                  style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text(
-                                                  dest.formattedTicketPrice,
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppColors.primary,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                  textAlign: TextAlign.end,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                          SizedBox(width: 2),
+                                          Icon(Icons.chevron_right, size: 14, color: Color(0xFF04432F)),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                        ],
                       ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -432,64 +559,65 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildShortcutCard({
+  Widget _buildUtilityCard({
     required BuildContext context,
     required IconData icon,
-    required Color iconColor,
     required Color iconBgColor,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.outlineVariant.withAlpha(80)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.surfaceContainer.withAlpha(120)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(4),
+              color: AppColors.onSurface.withAlpha(6),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: iconBgColor,
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: AppTypography.labelLarge.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.onSurface,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontSize: 10,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

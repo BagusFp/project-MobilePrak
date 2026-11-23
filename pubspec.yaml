@@ -1,7 +1,7 @@
 name: project
-description: "MeraTrip - Aplikasi Perencanaan Wisata Lereng Merapi (Praktikum Mobile)."
+description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.12.2
@@ -24,7 +24,10 @@ dependencies:
   path: ^1.9.1
   permission_handler: ^11.3.1
   provider: ^6.1.5+1
+  sensors_plus: ^7.1.1
   shared_preferences: ^2.5.6
+  sqflite: ^2.4.4+1
+  supabase_flutter: ^2.18.3
   timezone: ^0.11.1
   url_launcher: ^6.3.3
 
@@ -32,9 +35,24 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.4
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
   assets:
     - lib/img/logo.png
     - assets/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "lib/img/logo.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "lib/img/logo.png"
+  windows:
+    generate: true
+    image_path: "lib/img/logo.png"
+

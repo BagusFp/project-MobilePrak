@@ -3,10 +3,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
-import '../../main.dart';
+import '../../core/widgets/primary_button.dart';
 import 'auth_provider.dart';
 
-/// Halaman Pendaftaran Akun Pengguna (Modul 2, 3, & 4).
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -18,46 +17,136 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _agreeTerms = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  int _calculatePasswordStrength(String password) {
+    if (password.isEmpty) return 0;
+    int strength = 0;
+    if (password.length >= 8) strength++;
+    if (RegExp(r'[A-Z]').hasMatch(password) && RegExp(r'[a-z]').hasMatch(password)) strength++;
+    if (RegExp(r'[0-9]').hasMatch(password) || RegExp(r'[!@#\$%^&*(),.?":{}|<>~_\-]').hasMatch(password)) strength++;
+    return strength;
+  }
+
+  Widget _buildPasswordCriterion({required String label, required bool isMet}) {
+    const activeColor = Color(0xFF007A60);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            size: 16,
+            color: isMet ? activeColor : AppColors.outlineVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(
+                fontSize: 12,
+                color: isMet ? activeColor : AppColors.onSurfaceVariant,
+                fontWeight: isMet ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _handleRegister() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lengkapi nama, email, dan kata sandi.'),
+          content: Text('Lengkapi seluruh formulir pendaftaran.'),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
-    final auth = context.read<AuthProvider>();
-    final success = await auth.register(name, email, password);
+    if (!email.contains('@') || !email.contains('.')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Masukkan format email yang valid.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kata sandi minimal 6 karakter.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konfirmasi kata sandi tidak cocok.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (!_agreeTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Anda harus menyetujui ketentuan dan protokol keamanan.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.register(
+      name: name,
+      email: email,
+      password: password,
+    );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MeraTripShellScreen()),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pendaftaran berhasil! Akun tersimpan di Supabase.'),
+          backgroundColor: AppColors.secondary,
+        ),
       );
+      Navigator.of(context).pop(); // Tutup halaman register
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(auth.errorMessage ?? 'Gagal mendaftar.'),
+          content: Text(authProvider.errorMessage ?? 'Gagal mendaftar.'),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -65,119 +154,293 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
+    final authProvider = context.watch<AuthProvider>();
+    final passwordText = _passwordController.text;
+    final passwordStrength = _calculatePasswordStrength(passwordText);
+    final isPasswordMatch = passwordText.isNotEmpty &&
+        passwordText == _confirmPasswordController.text;
+
+    final hasMinLength = passwordText.length >= 8;
+    final hasUpperLower = RegExp(r'[A-Z]').hasMatch(passwordText) && RegExp(r'[a-z]').hasMatch(passwordText);
+    final hasNumberOrSymbol = RegExp(r'[0-9]').hasMatch(passwordText) ||
+        RegExp(r'[!@#\$%^&*(),.?":{}|<>~_\-]').hasMatch(passwordText);
+
+    final String strengthLabel;
+    final Color strengthColor;
+    if (passwordStrength == 3) {
+      strengthLabel = 'Kuat';
+      strengthColor = const Color(0xFF00A878);
+    } else if (passwordStrength == 2) {
+      strengthLabel = 'Sedang';
+      strengthColor = AppColors.volcanoStatusWaspada;
+    } else {
+      strengthLabel = 'Lemah';
+      strengthColor = AppColors.error;
+    }
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Daftar Akun Baru'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Registrasi Pengguna',
+          style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary),
         ),
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Bergabung dengan MeraTrip',
-                  style: AppTypography.headlineSm.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onSurface,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Header Crest & Title
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: AppDimensions.roundedLg,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withAlpha(25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: AppDimensions.roundedLg,
+                  child: Image.asset(
+                    'lib/img/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Simpan rencana petualangan dan jelajahi destinasi lereng Merapi.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
-                ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Daftar Akun Penjelajah',
+                style: AppTypography.headlineMedium.copyWith(fontWeight: FontWeight.w800, color: AppColors.primary),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Mulai petualangan terencana dan aman di kawasan lereng Gunung Merapi.',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
 
-                // Nama Lengkap
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Nama Lengkap',
-                    prefixIcon: const Icon(Icons.person_outline, color: AppColors.primary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                    ),
-                  ),
+              // Registration Form Card
+              Container(
+                padding: AppDimensions.cardPadding,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: AppDimensions.roundedLg,
+                  border: Border.all(color: AppColors.surfaceContainer, width: 1.0),
                 ),
-                const SizedBox(height: 16),
-
-                // Email
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Password
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Kata Sandi',
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primary),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: AppColors.outline,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Tombol Daftar
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: auth.isLoading ? null : _handleRegister,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: auth.isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Buat Akun & Masuk',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Field Nama Lengkap
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Nama Lengkap',
+                            style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                  ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Sesuai KTP/Paspor',
+                            style: AppTypography.bodySmall.copyWith(fontSize: 10),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _nameController,
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurface),
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: Danang Baskoro',
+                        prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Field Email
+                    Text('Email', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurface),
+                      decoration: const InputDecoration(
+                        hintText: 'email@domain.com',
+                        prefixIcon: Icon(Icons.alternate_email_rounded, color: AppColors.primary, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Field Kata Sandi
+                    Text('Kata Sandi', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      onChanged: (_) => setState(() {}),
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurface),
+                      decoration: InputDecoration(
+                        hintText: 'Masukkan kata sandi',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 20),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            color: AppColors.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Password Strength Segmented Bar & Criteria Indicator
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: passwordStrength >= 1 && passwordText.isNotEmpty
+                                  ? strengthColor
+                                  : AppColors.offlineBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: passwordStrength >= 2 && passwordText.isNotEmpty
+                                  ? strengthColor
+                                  : AppColors.offlineBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: passwordStrength >= 3 && passwordText.isNotEmpty
+                                  ? strengthColor
+                                  : AppColors.offlineBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                        if (passwordText.isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            strengthLabel,
+                            style: AppTypography.labelMedium.copyWith(
+                              color: strengthColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildPasswordCriterion(
+                      label: 'Minimal 8 karakter',
+                      isMet: hasMinLength,
+                    ),
+                    _buildPasswordCriterion(
+                      label: 'Huruf besar & kecil',
+                      isMet: hasUpperLower,
+                    ),
+                    _buildPasswordCriterion(
+                      label: 'Angka atau simbol',
+                      isMet: hasNumberOrSymbol,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Field Konfirmasi Kata Sandi
+                    Text('Konfirmasi Kata Sandi', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirmPassword,
+                      onChanged: (_) => setState(() {}),
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurface),
+                      decoration: InputDecoration(
+                        hintText: 'Ulangi kata sandi',
+                        prefixIcon: const Icon(Icons.lock_reset_rounded, color: AppColors.primary, size: 20),
+                        suffixIcon: isPasswordMatch
+                            ? const Icon(Icons.task_alt_rounded, color: AppColors.secondary, size: 20)
+                            : IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  color: AppColors.onSurfaceVariant,
+                                  size: 20,
+                                ),
+                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Checkbox Agreement
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _agreeTerms,
+                            activeColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            onChanged: (val) => setState(() => _agreeTerms = val ?? false),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Saya menyetujui Ketentuan Layanan, Kebijakan Privasi, dan Protokol Keamanan Wisata Merapi (BPPTKG).',
+                            style: AppTypography.bodySmall.copyWith(fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Tombol Submit
+                    PrimaryButton(
+                      text: 'Daftar Akun MeraTrip',
+                      icon: Icons.terrain_rounded,
+                      isLoading: authProvider.isLoading,
+                      onPressed: _handleRegister,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),

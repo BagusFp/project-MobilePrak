@@ -1,284 +1,183 @@
-import 'destination_model.dart';
+import 'base_entity.dart';
+import 'trip_item_model.dart';
 
-/// Item destinasi di dalam suatu rencana perjalanan (Satu Trip Banyak Destinasi).
-/// Mendukung penandaan status kunjungan ("sudah ke situ").
-class TripDestinationItem {
-  final int id;
-  final String name;
-  final String categoryName;
-  final String? imageUrl;
-  final double latitude;
-  final double longitude;
-  final int elevationMdpl;
-  final double ticketPrice;
-  final String ticketPriceLabel;
-  final String address;
-  final bool isVisited; // Status apakah sudah dikunjungi saat trip
-
-  const TripDestinationItem({
-    required this.id,
-    required this.name,
-    this.categoryName = 'Wisata Alam',
-    this.imageUrl,
-    this.latitude = -7.5833,
-    this.longitude = 110.4422,
-    this.elevationMdpl = 800,
-    this.ticketPrice = 0.0,
-    this.ticketPriceLabel = '',
-    this.address = 'Kawasan Merapi, Sleman',
-    this.isVisited = false,
-  });
-
-  /// Getter alias untuk kategori (OOP Encapsulation)
-  String get category => categoryName;
-
-  /// Factory untuk membuat item destinasi dari DestinationModel (OOP)
-  factory TripDestinationItem.fromDestination(DestinationModel dest) {
-    return TripDestinationItem(
-      id: dest.id,
-      name: dest.name,
-      categoryName: dest.categoryName,
-      imageUrl: dest.imageUrl,
-      latitude: dest.latitude,
-      longitude: dest.longitude,
-      elevationMdpl: dest.elevationMdpl,
-      ticketPrice: dest.ticketPrice,
-      ticketPriceLabel: dest.formattedTicketPrice,
-      address: dest.address,
-      isVisited: false,
-    );
-  }
-
-  /// Deserialisasi dari Map secara aman & toleran (Hive Local Storage)
-  factory TripDestinationItem.fromMap(Map map) {
-    return TripDestinationItem(
-      id: map['id'] is num
-          ? (map['id'] as num).toInt()
-          : (int.tryParse(map['id']?.toString() ?? '') ?? 0),
-      name: map['name']?.toString() ?? 'Destinasi Merapi',
-      categoryName: (map['category_name'] ?? map['category'])?.toString() ?? 'Wisata Alam',
-      imageUrl: map['image_url']?.toString(),
-      latitude: (map['latitude'] as num?)?.toDouble() ??
-          (double.tryParse(map['latitude']?.toString() ?? '') ?? -7.5833),
-      longitude: (map['longitude'] as num?)?.toDouble() ??
-          (double.tryParse(map['longitude']?.toString() ?? '') ?? 110.4422),
-      elevationMdpl: map['elevation_mdpl'] is num
-          ? (map['elevation_mdpl'] as num).toInt()
-          : (int.tryParse(map['elevation_mdpl']?.toString() ?? '') ?? 800),
-      ticketPrice: (map['ticket_price'] as num?)?.toDouble() ??
-          (double.tryParse(map['ticket_price']?.toString() ?? '') ?? 0.0),
-      ticketPriceLabel: map['ticket_price_label']?.toString() ?? '',
-      address: map['address']?.toString() ?? 'Kawasan Merapi, Sleman',
-      isVisited: map['is_visited'] == true || map['is_visited'] == 1 || map['is_visited'] == 'true',
-    );
-  }
-
-  /// Konversi kembali ke DestinationModel untuk navigasi ke detail
-  DestinationModel toDestinationModel() {
-    return DestinationModel(
-      id: id,
-      name: name,
-      description: 'Destinasi wisata lereng Gunung Merapi.',
-      categoryId: 1,
-      categoryName: categoryName,
-      latitude: latitude,
-      longitude: longitude,
-      elevationMdpl: elevationMdpl,
-      ticketPrice: ticketPrice,
-      ticketPriceLabel: ticketPriceLabel,
-      address: address,
-      imageUrl: imageUrl,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'category_name': categoryName,
-      'image_url': imageUrl,
-      'latitude': latitude,
-      'longitude': longitude,
-      'elevation_mdpl': elevationMdpl,
-      'ticket_price': ticketPrice,
-      'ticket_price_label': ticketPriceLabel,
-      'address': address,
-      'is_visited': isVisited,
-    };
-  }
-
-  TripDestinationItem copyWith({
-    int? id,
-    String? name,
-    String? categoryName,
-    String? imageUrl,
-    double? latitude,
-    double? longitude,
-    int? elevationMdpl,
-    double? ticketPrice,
-    String? ticketPriceLabel,
-    String? address,
-    bool? isVisited,
-  }) {
-    return TripDestinationItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      categoryName: categoryName ?? this.categoryName,
-      imageUrl: imageUrl ?? this.imageUrl,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
-      elevationMdpl: elevationMdpl ?? this.elevationMdpl,
-      ticketPrice: ticketPrice ?? this.ticketPrice,
-      ticketPriceLabel: ticketPriceLabel ?? this.ticketPriceLabel,
-      address: address ?? this.address,
-      isVisited: isVisited ?? this.isVisited,
-    );
-  }
-}
-
-/// Model Trip Perjalanan Wisata Merapi untuk Local Storage Hive (Modul 6 & OOP).
-/// Satu Trip memiliki relasi 1-to-N dengan banyak destinasi wisata.
-class TripModel {
-  final int id;
+class TripModel implements BaseEntity {
+  @override
+  final int? id;
+  final int userId;
   final String tripName;
   final String startDate;
+  final int participantCount;
   final double targetBudget;
-  final String notes;
-  final String status; // 'Rencana', 'Selesai'
+  final double? targetBudgetOriginal; // Nilai asli yang diinputkan pengguna dalam mata uang currencySource
+  final double totalEstimatedCost;
+  final double totalActualCost;
+  final String status; // 'draft', 'upcoming'/'planned', 'active', 'completed'
   final bool reminderEnabled;
+  final bool isSavedOffline;
+  final String? bannerImageUrl;
+  final String? startedAt;
+  final String? completedAt;
   final String createdAt;
-  final List<TripDestinationItem> destinations;
+  final String? originCity;
+  final String? originTimezone;
+  final String? destinationCity;
+  final String? destinationTimezone;
+  final String? currencySource;
+  final String? currencyTarget;
+  final int currentStep; // 1: Info & Budget, 2: Destinasi & Jadwal, 3: Ringkasan & Notifikasi
+  final String? updatedAt;
+  final List<TripItemModel> items;
 
-  TripModel({
-    required this.id,
+  const TripModel({
+    this.id,
+    required this.userId,
     required this.tripName,
     required this.startDate,
-    this.targetBudget = 250000.0,
-    this.notes = '',
-    this.status = 'Rencana',
+    this.participantCount = 2,
+    this.targetBudget = 400000.0,
+    this.targetBudgetOriginal,
+    this.totalEstimatedCost = 64000.0,
+    this.totalActualCost = 0.0,
+    this.status = 'upcoming',
     this.reminderEnabled = true,
-    this.createdAt = '',
-    List<TripDestinationItem>? destinations,
-    String? destinationName,
-  }) : destinations = destinations ??
-            (destinationName != null && destinationName.isNotEmpty
-                ? [
-                    TripDestinationItem(
-                      id: 0,
-                      name: destinationName,
-                    )
-                  ]
-                : const []);
-
-  /// Getter terenkapsulasi untuk memformat nominal target anggaran
-  String get formattedBudget {
-    return 'Rp ${targetBudget.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
-  }
-
-  bool get isCompleted => status.toLowerCase() == 'selesai';
-
-  int get totalDestinations => destinations.length;
-
-  /// Jumlah destinasi yang sudah dikunjungi ("sudah ke situ")
-  int get visitedCount => destinations.where((d) => d.isVisited).length;
-
-  /// Persentase penyelesaian trip (0.0 s/d 1.0)
-  double get progressPercent =>
-      destinations.isEmpty ? 0.0 : visitedCount / destinations.length;
-
-  /// Nama destinasi ringkas (untuk kompatibilitas tampilan kartu lama)
-  String get destinationName {
-    if (destinations.isEmpty) return 'Belum ada destinasi dipilih';
-    if (destinations.length == 1) return destinations.first.name;
-    return '${destinations.first.name} (+${destinations.length - 1} destinasi lainnya)';
-  }
-
-  /// Ringkasan seluruh destinasi yang dipisahkan tanda koma
-  String get destinationsSummary {
-    if (destinations.isEmpty) return 'Belum ada destinasi';
-    return destinations.map((d) => d.name).join(', ');
-  }
-
-  /// Named Constructor untuk deserialisasi dari Map/Hive Box (Modul 6)
-  /// Menyediakan toleransi penuh dan pencegahan type cast error.
-  factory TripModel.fromMap(Map map) {
-    List<TripDestinationItem> parsedDestinations = [];
-
-    if (map['destinations'] is List) {
-      for (var item in (map['destinations'] as List)) {
-        if (item is Map) {
-          try {
-            parsedDestinations.add(TripDestinationItem.fromMap(Map.from(item)));
-          } catch (_) {}
-        }
-      }
-    } else if (map['destination_name'] != null && map['destination_name'].toString().isNotEmpty) {
-      // Mekanisme kompatibilitas: konversi data format lama ke list destinasi
-      final oldDestName = map['destination_name'].toString();
-      parsedDestinations = [
-        TripDestinationItem(
-          id: 1,
-          name: oldDestName,
-          categoryName: 'Wisata Alam',
-          latitude: -7.5833,
-          longitude: 110.4422,
-        ),
-      ];
-    }
-
-    return TripModel(
-      id: map['id'] is num
-          ? (map['id'] as num).toInt()
-          : (int.tryParse(map['id']?.toString() ?? '') ?? DateTime.now().millisecondsSinceEpoch),
-      tripName: map['trip_name']?.toString() ?? 'Trip Merapi',
-      startDate: map['start_date']?.toString() ?? 'Segera',
-      targetBudget: (map['target_budget'] as num?)?.toDouble() ??
-          (double.tryParse(map['target_budget']?.toString() ?? '') ?? 250000.0),
-      notes: map['notes']?.toString() ?? '',
-      status: map['status']?.toString() ?? 'Rencana',
-      reminderEnabled: map['reminder_enabled'] == true,
-      createdAt: map['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-      destinations: parsedDestinations,
-    );
-  }
-
-  /// Serialisasi ke Map untuk disimpan ke dalam Hive Box
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'trip_name': tripName,
-      'destination_name': destinations.isNotEmpty ? destinations.first.name : '',
-      'start_date': startDate,
-      'target_budget': targetBudget,
-      'notes': notes,
-      'status': status,
-      'reminder_enabled': reminderEnabled,
-      'created_at': createdAt,
-      'destinations': destinations.map((d) => d.toMap()).toList(),
-    };
-  }
+    this.isSavedOffline = true,
+    this.bannerImageUrl,
+    this.startedAt,
+    this.completedAt,
+    required this.createdAt,
+    this.originCity,
+    this.originTimezone,
+    this.destinationCity,
+    this.destinationTimezone,
+    this.currencySource = 'IDR',
+    this.currencyTarget = 'USD',
+    this.currentStep = 1,
+    this.updatedAt,
+    this.items = const [],
+  });
 
   TripModel copyWith({
     int? id,
+    int? userId,
     String? tripName,
     String? startDate,
+    int? participantCount,
     double? targetBudget,
-    String? notes,
+    double? targetBudgetOriginal,
+    double? totalEstimatedCost,
+    double? totalActualCost,
     String? status,
     bool? reminderEnabled,
+    bool? isSavedOffline,
+    String? bannerImageUrl,
+    String? startedAt,
+    String? completedAt,
     String? createdAt,
-    List<TripDestinationItem>? destinations,
+    String? originCity,
+    String? originTimezone,
+    String? destinationCity,
+    String? destinationTimezone,
+    String? currencySource,
+    String? currencyTarget,
+    int? currentStep,
+    String? updatedAt,
+    List<TripItemModel>? items,
   }) {
     return TripModel(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       tripName: tripName ?? this.tripName,
       startDate: startDate ?? this.startDate,
+      participantCount: participantCount ?? this.participantCount,
       targetBudget: targetBudget ?? this.targetBudget,
-      notes: notes ?? this.notes,
+      targetBudgetOriginal: targetBudgetOriginal ?? this.targetBudgetOriginal,
+      totalEstimatedCost: totalEstimatedCost ?? this.totalEstimatedCost,
+      totalActualCost: totalActualCost ?? this.totalActualCost,
       status: status ?? this.status,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      isSavedOffline: isSavedOffline ?? this.isSavedOffline,
+      bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
+      startedAt: startedAt ?? this.startedAt,
+      completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
-      destinations: destinations ?? this.destinations,
+      originCity: originCity ?? this.originCity,
+      originTimezone: originTimezone ?? this.originTimezone,
+      destinationCity: destinationCity ?? this.destinationCity,
+      destinationTimezone: destinationTimezone ?? this.destinationTimezone,
+      currencySource: currencySource ?? this.currencySource,
+      currencyTarget: currencyTarget ?? this.currencyTarget,
+      currentStep: currentStep ?? this.currentStep,
+      updatedAt: updatedAt ?? this.updatedAt,
+      items: items ?? this.items,
     );
+  }
+
+  /// Nilai efektif inputan asli pengguna dalam mata uang pilihannya (currencySource)
+  double get effectiveOriginalBudget {
+    if (targetBudgetOriginal != null && targetBudgetOriginal! > 0) {
+      return targetBudgetOriginal!;
+    }
+    return targetBudget;
+  }
+
+  factory TripModel.fromMap(Map<String, dynamic> map, {List<TripItemModel> items = const []}) {
+    return TripModel(
+      id: map['id'] as int?,
+      userId: map['user_id'] as int,
+      tripName: map['trip_name'] as String,
+      startDate: map['start_date'] as String,
+      participantCount: map['participant_count'] as int? ?? 1,
+      targetBudget: (map['target_budget'] as num?)?.toDouble() ?? 400000.0,
+      targetBudgetOriginal: (map['target_budget_original'] as num?)?.toDouble(),
+      totalEstimatedCost: (map['total_estimated_cost'] as num?)?.toDouble() ?? 0.0,
+      totalActualCost: (map['total_actual_cost'] as num?)?.toDouble() ?? 0.0,
+      status: map['status'] as String? ?? 'upcoming',
+      reminderEnabled: (map['reminder_enabled'] as int? ?? 1) == 1 || (map['reminder_enabled'] == true),
+      isSavedOffline: (map['is_saved_offline'] as int? ?? 1) == 1 || (map['is_saved_offline'] == true),
+      bannerImageUrl: map['banner_image_url'] as String?,
+      startedAt: map['started_at'] as String?,
+      completedAt: map['completed_at'] as String?,
+      createdAt: map['created_at'] as String? ?? DateTime.now().toIso8601String(),
+      originCity: map['origin_city'] as String?,
+      originTimezone: map['origin_timezone'] as String?,
+      destinationCity: map['destination_city'] as String?,
+      destinationTimezone: map['destination_timezone'] as String?,
+      currencySource: map['currency_source'] as String? ?? 'IDR',
+      currencyTarget: map['currency_target'] as String? ?? 'USD',
+      currentStep: (map['current_step'] as num?)?.toInt() ?? (items.isNotEmpty ? 2 : 1),
+      updatedAt: map['updated_at'] as String? ?? map['created_at'] as String?,
+      items: items,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'user_id': userId,
+      'trip_name': tripName,
+      'start_date': startDate,
+      'participant_count': participantCount,
+      'target_budget': targetBudget,
+      if (targetBudgetOriginal != null) 'target_budget_original': targetBudgetOriginal,
+      'total_estimated_cost': totalEstimatedCost,
+      'total_actual_cost': totalActualCost,
+      'status': status,
+      'reminder_enabled': reminderEnabled ? 1 : 0,
+      'is_saved_offline': isSavedOffline ? 1 : 0,
+      'banner_image_url': bannerImageUrl,
+      if (startedAt != null) 'started_at': startedAt,
+      if (completedAt != null) 'completed_at': completedAt,
+      'created_at': createdAt,
+      'origin_city': originCity,
+      'origin_timezone': originTimezone,
+      'destination_city': destinationCity,
+      'destination_timezone': destinationTimezone,
+      'currency_source': currencySource,
+      'currency_target': currencyTarget,
+      'current_step': currentStep,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    };
   }
 }

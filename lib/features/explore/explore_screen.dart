@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/widgets/app_network_image.dart';
 import '../../data/models/destination_model.dart';
+import '../auth/auth_provider.dart';
+import '../map/map_provider.dart';
+import '../map/map_screen.dart';
 import 'destination_detail_screen.dart';
 import 'destination_provider.dart';
 
-/// Layar Explore Destinasi Wisata Merapi (Modul 2, 3: State & Data, Modul 5: HTTP Request).
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -23,10 +26,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<DestinationProvider>();
-      if (provider.allDestinations.isEmpty) {
-        provider.loadDestinations();
-      }
+      final auth = context.read<AuthProvider>();
+      context.read<DestinationProvider>().loadDestinations(userId: auth.currentUser?.id);
     });
   }
 
@@ -36,326 +37,902 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final destProvider = context.watch<DestinationProvider>();
-    final destinations = destProvider.displayedDestinations;
+  String _formatCurrency(double price) {
+    if (price <= 0) return 'Gratis';
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return formatter.format(price);
+  }
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Explore Wisata Merapi'),
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.primary),
-            tooltip: 'Segarkan Data dari API',
-            onPressed: () => destProvider.loadDestinations(),
-          ),
-        ],
+  void _showSortModal(BuildContext context) {
+    final provider = context.read<DestinationProvider>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDimensions.radiusXl)),
       ),
-      body: Column(
-        children: [
-          // 1. Kolom Pencarian (Modul 2: TextField & Modul 3: TextEditingController)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => destProvider.setSearchQuery(val),
-              decoration: InputDecoration(
-                hintText: 'Cari destinasi, bunker, museum...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          destProvider.clearSearch();
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppColors.surfaceContainerLowest,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                  borderSide: BorderSide(color: AppColors.outlineVariant.withAlpha(80)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                  borderSide: BorderSide(color: AppColors.outlineVariant.withAlpha(80)),
-                ),
+      builder: (ctx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.margin,
+                vertical: AppDimensions.spaceMd,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceMd),
+                  Text(
+                    'Urutkan Destinasi Berdasarkan',
+                    style: AppTypography.titleMd.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceSm),
+                  ...[
+                    'Destinasi Populer',
+                    'Biaya Terendah',
+                    'Terdekat',
+                  ].map((option) {
+                    final isSelected = provider.sortOption == option;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        option,
+                        style: AppTypography.bodyMd.copyWith(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? AppColors.primary : AppColors.onSurface,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        provider.setSortOption(option);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // 2. Baris Kategori Filter (Modul 2: SingleChildScrollView Row)
-          SizedBox(
-            height: 38,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-              itemCount: destProvider.categories.length,
-              itemBuilder: (context, index) {
-                final cat = destProvider.categories[index];
-                final isSelected = destProvider.selectedCategory == cat.name;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(cat.name),
-                    selected: isSelected,
-                    selectedColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.onSurface,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
-                    ),
-                    backgroundColor: AppColors.surfaceContainerLowest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                      side: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.outlineVariant.withAlpha(80),
-                      ),
-                    ),
-                    onSelected: (_) => destProvider.setSelectedCategory(cat.name),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 3. Status Data (Loading, Error, atau ListView Dinamis - Modul 5)
-          Expanded(
-            child: _buildContent(destProvider, destinations),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildContent(DestinationProvider provider, List<DestinationModel> destinations) {
-    // A. Loading State (Modul 5)
-    if (provider.isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            SizedBox(height: 12),
-            Text(
-              'Memuat data destinasi dari API...',
-              style: TextStyle(color: AppColors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<DestinationProvider>();
+    final auth = context.watch<AuthProvider>();
+    final destinations = provider.displayedDestinations;
 
-    // B. Error State (Modul 5)
-    if (provider.errorMessage != null && destinations.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimensions.margin),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.error),
-              const SizedBox(height: 12),
-              Text(
-                provider.errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => provider.loadDestinations(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Coba Lagi'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            await provider.loadDestinations(userId: auth.currentUser?.id);
+          },
+          child: CustomScrollView(
+            // ignore: deprecated_member_use
+            cacheExtent: 150.0,
+            slivers: [
+              // 3. Search Bar Section (Full Width)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.margin,
+                    vertical: AppDimensions.spaceSm,
+                  ),
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest,
+                      borderRadius: AppDimensions.roundedXl,
+                      border: Border.all(color: AppColors.surfaceContainer),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => provider.setSearchQuery(val),
+                      decoration: InputDecoration(
+                        hintText: 'Cari destinasi, lokasi, atau kategori...',
+                        hintStyle: AppTypography.bodyMd.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  provider.clearSearch();
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
                 ),
+              ),
+
+              // 4. Horizontal Category Chips
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: (44.0 * MediaQuery.textScalerOf(context).scale(1.0)).clamp(44.0, 58.0),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: provider.categories.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (ctx, idx) {
+                      final cat = provider.categories[idx];
+                      final isSelected = provider.selectedCategory == cat.name;
+
+                      return InkWell(
+                        onTap: () => provider.setSelectedCategory(cat.name),
+                        borderRadius: AppDimensions.roundedFull,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primaryContainer
+                                : AppColors.surfaceContainerLowest,
+                            borderRadius: AppDimensions.roundedFull,
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primaryContainer
+                                  : AppColors.surfaceContainer,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getCategoryIcon(cat.iconName),
+                                size: 16,
+                                color: isSelected
+                                    ? AppColors.onPrimary
+                                    : AppColors.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cat.name,
+                                style: AppTypography.labelMd.copyWith(
+                                  color: isSelected
+                                      ? AppColors.onPrimary
+                                      : AppColors.onSurfaceVariant,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              // 5. Sort & View Controls Bar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppDimensions.margin,
+                    right: AppDimensions.margin,
+                    top: AppDimensions.spaceSm,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: InkWell(
+                          onTap: () => _showSortModal(context),
+                          borderRadius: AppDimensions.roundedFull,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainer,
+                              borderRadius: AppDimensions.roundedFull,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.swap_vert,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Urutkan: ${provider.sortOption}',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_drop_down, size: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // View Mode Toggle (List / Grid)
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLowest,
+                          borderRadius: AppDimensions.roundedLg,
+                          border: Border.all(color: AppColors.surfaceContainer),
+                        ),
+                        child: Row(
+                          children: [
+                            InkWell(
+                              onTap: () => provider.setViewMode(false),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: !provider.isGridView
+                                      ? AppColors.surfaceContainer
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  Icons.format_list_bulleted,
+                                  size: 18,
+                                  color: !provider.isGridView
+                                      ? AppColors.primary
+                                      : AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => provider.setViewMode(true),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: provider.isGridView
+                                      ? AppColors.surfaceContainer
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  Icons.grid_view,
+                                  size: 18,
+                                  color: provider.isGridView
+                                      ? AppColors.primary
+                                      : AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 6. Result Counter & Offline Mode Status
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.margin,
+                    vertical: AppDimensions.spaceSm,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: AppColors.secondary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Menampilkan ${destinations.length} destinasi terverifikasi',
+                                style: AppTypography.bodySm.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 7. Destinations Feed (Single Column or Grid)
+              if (destinations.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.margin,
+                      vertical: AppDimensions.spaceXl,
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            provider.offlineNotice != null
+                                ? Icons.cloud_off_rounded
+                                : Icons.search_off,
+                            size: 56,
+                            color: provider.offlineNotice != null
+                                ? AppColors.secondary
+                                : AppColors.outlineVariant,
+                          ),
+                          const SizedBox(height: AppDimensions.spaceSm),
+                          Text(
+                            provider.offlineNotice != null
+                                ? 'Data Butuh Koneksi Internet'
+                                : 'Tidak ada destinasi ditemukan',
+                            style: AppTypography.titleMd.copyWith(
+                              color: AppColors.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            provider.offlineNotice ??
+                                'Coba ganti kata kunci atau pilih kategori lain.',
+                            style: AppTypography.bodySm.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (!provider.isGridView)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, idx) {
+                        final dest = destinations[idx];
+                        return RepaintBoundary(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: AppDimensions.spaceMd),
+                            child: _buildListCard(context, dest, provider, auth),
+                          ),
+                        );
+                      },
+                      childCount: destinations.length,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                       crossAxisCount: 2,
+                       crossAxisSpacing: AppDimensions.spaceSm,
+                       mainAxisSpacing: AppDimensions.spaceSm,
+                       childAspectRatio: 0.68,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, idx) {
+                        final dest = destinations[idx];
+                        return RepaintBoundary(
+                          child: _buildGridCard(context, dest, provider, auth),
+                        );
+                      },
+                      childCount: destinations.length,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                    ),
+                  ),
+                ),
+
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 80),
               ),
             ],
           ),
         ),
-      );
-    }
-
-    // C. Empty State
-    if (destinations.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.search_off_rounded, size: 54, color: AppColors.outline),
-            const SizedBox(height: 12),
-            Text(
-              'Tidak ada destinasi yang cocok.',
-              style: AppTypography.titleMedium.copyWith(color: AppColors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // D. Dynamic ListView (Modul 2 & Modul 5)
-    return RefreshIndicator(
-      onRefresh: () => provider.loadDestinations(),
-      color: AppColors.primary,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(
-          AppDimensions.margin,
-          0,
-          AppDimensions.margin,
-          AppDimensions.spaceXl,
-        ),
-        itemCount: destinations.length,
-        itemBuilder: (context, index) {
-          final dest = destinations[index];
-          return _buildDestinationCard(context, dest);
-        },
       ),
     );
   }
 
-  Widget _buildDestinationCard(BuildContext context, DestinationModel dest) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.outlineVariant.withAlpha(80)),
+  Widget _buildListCard(
+    BuildContext context,
+    DestinationModel dest,
+    DestinationProvider provider,
+    AuthProvider auth,
+  ) {
+    final isFav = provider.isFavorite(dest.id);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: AppDimensions.roundedXl,
+        border: Border.all(color: AppColors.surfaceContainer),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.onSurface.withAlpha(8),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      color: AppColors.surfaceContainerLowest,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        // Modul 4: Passing Data antarhalaman via Constructor
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DestinationDetailScreen(destination: dest),
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Gambar Destinasi
-            Stack(
-              children: [
-                AppNetworkImage(
-                  imageUrl: dest.imageUrl,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Visual Area
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppDimensions.radiusXl),
                 ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(140),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                child: SizedBox(
+                  height: 180,
+                  width: double.infinity,
+                  child: AppNetworkImage(
+                    imageUrl: dest.imageUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    cacheWidth: 600,
+                    placeholder: _buildPlaceholder(),
+                    errorWidget: _buildPlaceholder(),
+                  ),
+                ),
+              ),
+              // Gradient Scrim
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(AppDimensions.radiusXl),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFB300)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${dest.rating}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withAlpha(50),
+                        Colors.transparent,
+                        Colors.black.withAlpha(120),
                       ],
                     ),
                   ),
                 ),
-                Positioned(
-                  bottom: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                    ),
-                    child: Text(
-                      dest.categoryName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+              ),
+              // Top Badges
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLowest.withAlpha(230),
+                        borderRadius: AppDimensions.roundedFull,
                       ),
+                      child: Text(
+                        dest.categoryName,
+                        style: AppTypography.labelSm.copyWith(
+                          color: AppColors.onSurface,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Top Right Favorite Button
+              Positioned(
+                top: 10,
+                right: 10,
+                child: InkWell(
+                  onTap: () => provider.toggleFavorite(dest.id, userId: auth.currentUser?.id),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest.withAlpha(230),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      size: 18,
+                      color: isFav ? AppColors.error : AppColors.onSurfaceVariant,
                     ),
                   ),
                 ),
+              ),
+              // Elevation Overlay
+              Positioned(
+                bottom: 10,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withAlpha(140),
+                    borderRadius: AppDimensions.roundedSm,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.landscape,
+                        size: 14,
+                        color: AppColors.secondaryContainer,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${dest.elevationMdpl} mdpl',
+                        style: AppTypography.labelSm.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Content Area
+          Padding(
+            padding: const EdgeInsets.all(AppDimensions.spaceMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dest.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.headlineSm.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  dest.address,
+                                  style: AppTypography.bodySm.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.spaceSm),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Tiket Masuk',
+                            style: AppTypography.labelSm.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              dest.ticketPrice > 0 ? _formatCurrency(dest.ticketPrice) : 'Gratis',
+                              style: AppTypography.titleMd.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.spaceSm),
+                Text(
+                  dest.description,
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppDimensions.spaceMd),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryContainer,
+                            foregroundColor: AppColors.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppDimensions.roundedLg,
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DestinationDetailScreen(destination: dest),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Lihat Detail',
+                                  style: AppTypography.labelLg,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.arrow_forward, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.spaceSm),
+                    Tooltip(
+                      message: 'Rute Navigasi',
+                      child: InkWell(
+                        onTap: () {
+                          final mapProvider = context.read<MapProvider>();
+                          mapProvider.selectDestination(dest);
+                          mapProvider.fetchRouteToDestination(dest);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MapScreen(
+                                initialDestination: dest,
+                                autoRoute: true,
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: AppDimensions.roundedLg,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainer,
+                            borderRadius: AppDimensions.roundedLg,
+                          ),
+                          child: const Icon(
+                            Icons.navigation,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Konten Teks
+  Widget _buildGridCard(
+    BuildContext context,
+    DestinationModel dest,
+    DestinationProvider provider,
+    AuthProvider auth,
+  ) {
+    final isFav = provider.isFavorite(dest.id);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DestinationDetailScreen(destination: dest),
+          ),
+        );
+      },
+      borderRadius: AppDimensions.roundedLg,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: AppDimensions.roundedLg,
+          border: Border.all(color: AppColors.surfaceContainer),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(AppDimensions.radiusLg),
+                    ),
+                    child: AppNetworkImage(
+                      imageUrl: dest.imageUrl,
+                      fit: BoxFit.cover,
+                      cacheWidth: 350,
+                      placeholder: _buildPlaceholder(),
+                      errorWidget: _buildPlaceholder(),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: InkWell(
+                      onTap: () => provider.toggleFavorite(dest.id, userId: auth.currentUser?.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLowest.withAlpha(230),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
+                          color: isFav ? AppColors.error : AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(160),
+                        borderRadius: AppDimensions.roundedSm,
+                      ),
+                      child: Text(
+                        '${dest.elevationMdpl} mdpl',
+                        style: AppTypography.labelSm.copyWith(
+                          color: Colors.white,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     dest.name,
-                    style: AppTypography.titleMedium.copyWith(
+                    style: AppTypography.titleMd.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.onSurface,
+                      fontSize: 13,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dest.description,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      height: 1.3,
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      dest.ticketPrice > 0 ? _formatCurrency(dest.ticketPrice) : 'Gratis',
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.terrain_rounded, size: 14, color: Color(0xFF2E7D32)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${dest.elevationMdpl} mdpl',
-                            style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        dest.formattedTicketPrice,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String iconName) {
+    switch (iconName) {
+      case 'park':
+        return Icons.park;
+      case 'history_edu':
+        return Icons.history_edu;
+      case 'school':
+        return Icons.school;
+      case 'hiking':
+        return Icons.hiking;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'travel_explore':
+      default:
+        return Icons.travel_explore;
+    }
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: AppColors.primaryContainer,
+      child: const Center(
+        child: Icon(
+          Icons.landscape,
+          color: AppColors.onPrimary,
+          size: 40,
         ),
       ),
     );
