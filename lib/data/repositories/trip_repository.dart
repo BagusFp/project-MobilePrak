@@ -35,10 +35,7 @@ class TripRepository {
     final deletedKeys = prefs.getDeletedTripKeys().toSet();
 
     bool isDeleted(TripModel t) {
-      if (t.id != null && deletedKeys.contains('${t.id}')) return true;
-      final name = t.tripName.trim().toLowerCase();
-      if (name.isNotEmpty && deletedKeys.contains(name)) return true;
-      return false;
+      return t.id != null && deletedKeys.contains('${t.id}');
     }
 
     // Ambil cache lokal SQLite terlebih dahulu
@@ -285,9 +282,6 @@ class TripRepository {
       final prefs = await PreferencesHelper.instance;
       if (tripId > 0) {
         await prefs.addDeletedTripKey('$tripId');
-      }
-      if (tripName != null && tripName.trim().isNotEmpty) {
-        await prefs.addDeletedTripKey(tripName.trim().toLowerCase());
       }
 
       // 2. Hapus dari SQLite lokal & Hive Box (Modul 6)

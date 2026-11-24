@@ -22,7 +22,6 @@ class AppScaffold extends StatelessWidget {
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
-    bool showVolcanoStatusBar = false,
   });
 
   @override

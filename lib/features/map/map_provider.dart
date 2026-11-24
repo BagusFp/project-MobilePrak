@@ -12,9 +12,6 @@ class MapProvider extends ChangeNotifier {
   String _viewMode = 'map'; // 'map' atau 'list'
   double _userLat = GeoHelper.userDefaultLat;
   double _userLng = GeoHelper.userDefaultLng;
-  bool _isBatterySaver = false;
-  final bool _isGpsAccurate = true;
-  bool _isWifiOnly = true;
 
   // Real-time GPS Tracking State
   bool _isLocating = false;
@@ -28,13 +25,7 @@ class MapProvider extends ChangeNotifier {
   List<LatLng> _routePoints = [];
   double? _routeDistanceKm;
   int? _routeDurationMinutes;
-  String? _routeAttribution;
   String? _routeError;
-
-  // OpenStreetMap Online Search State (User Poin 2)
-  bool _isSearchingOsm = false;
-  List<DestinationModel> _osmSearchResults = [];
-  String _searchQuery = '';
 
   MapProvider() {
     // Default seleksi: Bunker Kaliadem
@@ -48,9 +39,6 @@ class MapProvider extends ChangeNotifier {
   String get viewMode => _viewMode;
   double get userLat => _userLat;
   double get userLng => _userLng;
-  bool get isBatterySaver => _isBatterySaver;
-  bool get isGpsAccurate => _isGpsAccurate;
-  bool get isWifiOnly => _isWifiOnly;
 
   bool get isLocating => _isLocating;
   bool get hasLiveGpsFix => _hasLiveGpsFix;
@@ -62,12 +50,7 @@ class MapProvider extends ChangeNotifier {
   List<LatLng> get routePoints => _routePoints;
   double? get routeDistanceKm => _routeDistanceKm;
   int? get routeDurationMinutes => _routeDurationMinutes;
-  String? get routeAttribution => _routeAttribution;
   String? get routeError => _routeError;
-
-  bool get isSearchingOsm => _isSearchingOsm;
-  List<DestinationModel> get osmSearchResults => _osmSearchResults;
-  String get searchQuery => _searchQuery;
 
   /// Destinasi yang diurutkan berdasarkan kedekatan LBS dengan pengguna
   List<DestinationModel> get destinationsSortedByDistance {
@@ -95,24 +78,6 @@ class MapProvider extends ChangeNotifier {
   /// Toggle antara mode 'map' dan 'list'
   void toggleViewMode() {
     _viewMode = _viewMode == 'map' ? 'list' : 'map';
-    notifyListeners();
-  }
-
-  /// Toggle mode hemat daya GPS
-  void toggleBatterySaver() {
-    _isBatterySaver = !_isBatterySaver;
-    notifyListeners();
-  }
-
-  /// Set unduh hanya melalui Wi-Fi
-  void setWifiOnly(bool value) {
-    _isWifiOnly = value;
-    notifyListeners();
-  }
-
-  /// Toggle unduh hanya melalui Wi-Fi
-  void toggleWifiOnly() {
-    _isWifiOnly = !_isWifiOnly;
     notifyListeners();
   }
 
@@ -210,9 +175,8 @@ class MapProvider extends ChangeNotifier {
 
       if (res != null && res['coordinates'] is List && (res['coordinates'] as List).isNotEmpty) {
         _routePoints = List<LatLng>.from(res['coordinates'] as List);
-        _routeDistanceKm = res['distance_km'] as double?;
-        _routeDurationMinutes = res['duration_minutes'] as int?;
-        _routeAttribution = res['attribution'] as String?;
+        _routeDistanceKm = (res['distance_km'] as num?)?.toDouble();
+        _routeDurationMinutes = (res['duration_minutes'] as num?)?.round();
       } else {
         _routePoints = [LatLng(_userLat, _userLng), LatLng(dest.latitude, dest.longitude)];
         _routeDistanceKm = GeoHelper.distanceToUser(dest.latitude, dest.longitude, userLat: _userLat, userLng: _userLng);
@@ -233,38 +197,6 @@ class MapProvider extends ChangeNotifier {
     _routeDistanceKm = null;
     _routeDurationMinutes = null;
     _routeError = null;
-    notifyListeners();
-  }
-
-  /// Melakukan pencarian tempat wisata online via OpenStreetMap / Overpass
-  Future<void> searchDestinationsOnline(String query) async {
-    _searchQuery = query.trim();
-    if (_searchQuery.isEmpty) {
-      _osmSearchResults = [];
-      _isSearchingOsm = false;
-      notifyListeners();
-      return;
-    }
-
-    _isSearchingOsm = true;
-    notifyListeners();
-
-    try {
-      final results = await ApiService.searchOsmDestinations(_searchQuery);
-      _osmSearchResults = results;
-    } catch (e) {
-      _osmSearchResults = [];
-    } finally {
-      _isSearchingOsm = false;
-      notifyListeners();
-    }
-  }
-
-  /// Menghapus hasil pencarian online
-  void clearOsmSearch() {
-    _searchQuery = '';
-    _osmSearchResults = [];
-    _isSearchingOsm = false;
     notifyListeners();
   }
 }
