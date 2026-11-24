@@ -8,7 +8,6 @@ import '../../data/models/trip_expense_model.dart';
 import '../../data/models/trip_item_model.dart';
 import '../../data/models/trip_model.dart';
 import '../utils/crypto_helper.dart';
-import 'platform_database_factory.dart';
 import 'preferences_helper.dart';
 
 class DatabaseHelper {
@@ -32,7 +31,6 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    initPlatformDatabaseFactory();
     final isUnderFlutterTest =
         WidgetsBinding.instance.runtimeType.toString().contains('Test');
     final String path;

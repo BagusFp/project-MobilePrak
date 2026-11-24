@@ -24,14 +24,12 @@ import 'features/sensor/sensor_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'core/config/supabase_config.dart';
-import 'core/database/platform_database_factory.dart';
 import 'core/database/trip_local_db.dart';
 import 'core/services/notification_service.dart';
 import 'features/trip/trip_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  initPlatformDatabaseFactory();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

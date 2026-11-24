@@ -1,10 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
-import '../../core/database/database_helper.dart';
 import '../../core/database/preferences_helper.dart';
 import '../../core/services/supabase_service.dart';
-import '../../core/utils/crypto_helper.dart';
 
 class AuthResult {
   final bool isSuccess;
@@ -19,10 +17,9 @@ class AuthResult {
 }
 
 class AuthRepository {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
   final SupabaseService _supabaseService = SupabaseService();
 
-  /// Pendaftaran akun baru petualang Merapi ke Supabase Cloud & Lokal
+  /// Pendaftaran akun baru langsung ke Supabase Auth & simpan sesi ke Preferences
   Future<AuthResult> register({
     required String name,
     required String email,
@@ -32,107 +29,57 @@ class AuthRepository {
     final cleanName = name.trim();
 
     try {
-      // 1. Pendaftaran Utama ke Supabase Auth
-      AuthResponse? supabaseRes;
-      String? supabaseUserId;
-
-      try {
-        supabaseRes = await _supabaseService.signUp(
-          email: cleanEmail,
-          password: password,
-          name: cleanName,
-        );
-        supabaseUserId = supabaseRes.user?.id;
-        debugPrint('Supabase Auth register sukses: User ID = $supabaseUserId');
-      } on AuthException catch (e) {
-        debugPrint('Supabase AuthException register: ${e.message}');
-        if (e.message.toLowerCase().contains('already registered') ||
-            e.message.toLowerCase().contains('user already exists')) {
-          return const AuthResult(
-            isSuccess: false,
-            message: 'Email sudah terdaftar di Supabase. Silakan langsung masuk.',
-          );
-        }
-        if (e.message.toLowerCase().contains('invalid') && e.message.toLowerCase().contains('email')) {
-          return const AuthResult(
-            isSuccess: false,
-            message: 'Format email tidak diterima oleh Supabase. Gunakan email valid (misal @gmail.com).',
-          );
-        }
-        return AuthResult(
-          isSuccess: false,
-          message: 'Gagal mendaftar di Supabase: ${e.message}',
-        );
-      } catch (e) {
-        debugPrint('Supabase signUp network/unknown error: $e');
-        // Jaringan bermasalah, lanjut simpan lokal
-      }
-
-      // 2. Simpan atau perbarui akun di SQLite lokal untuk cache offline
-      int localUserId = 1;
-      final passwordHash = CryptoHelper.hashPassword(password);
-      final now = DateTime.now().toIso8601String();
-      try {
-        final db = await _dbHelper.database;
-        final existing = await db.query(
-          'users',
-          where: 'LOWER(email) = ?',
-          whereArgs: [cleanEmail],
-        );
-
-        if (existing.isNotEmpty) {
-          localUserId = existing.first['id'] as int;
-          final updateData = <String, Object?>{
-            'name': cleanName,
-            'password_hash': passwordHash,
-          };
-          if (supabaseUserId != null) {
-            updateData['supabase_id'] = supabaseUserId;
-          }
-          await db.update(
-            'users',
-            updateData,
-            where: 'id = ?',
-            whereArgs: [localUserId],
-          );
-        } else {
-          localUserId = await db.insert('users', {
-            'name': cleanName,
-            'email': cleanEmail,
-            'password_hash': passwordHash,
-            'supabase_id': supabaseUserId,
-            'is_biometric_enabled': 0,
-            'created_at': now,
-          });
-        }
-      } catch (dbError) {
-        debugPrint('SQLite register sync warning: $dbError');
-      }
+      final supabaseRes = await _supabaseService.signUp(
+        email: cleanEmail,
+        password: password,
+        name: cleanName,
+      );
+      final supabaseUserId = supabaseRes.user?.id;
+      debugPrint('Supabase Auth register sukses: User ID = $supabaseUserId');
 
       final newUser = UserModel(
-        id: localUserId,
+        id: 1,
         supabaseId: supabaseUserId,
         name: cleanName,
         email: cleanEmail,
-        passwordHash: passwordHash,
+        passwordHash: '',
         isBiometricEnabled: false,
-        createdAt: now,
+        createdAt: DateTime.now().toIso8601String(),
       );
 
-      // 3. Simpan sesi aktif ke Preferences
+      // Simpan sesi aktif ke Preferences (Modul 6)
       final prefs = await PreferencesHelper.instance;
       await prefs.saveUserSession(
-        userId: localUserId,
+        userId: 1,
         supabaseId: supabaseUserId,
         email: cleanEmail,
         name: cleanName,
-        token: supabaseRes?.session?.accessToken ?? 'token_$localUserId',
+        token: supabaseRes.session?.accessToken ?? 'session_active',
       );
 
       return AuthResult(
         isSuccess: true,
         message: 'Registrasi berhasil! Akun Anda telah terdaftar di Supabase.',
         user: newUser,
+      );
+    } on AuthException catch (e) {
+      debugPrint('Supabase AuthException register: ${e.message}');
+      if (e.message.toLowerCase().contains('already registered') ||
+          e.message.toLowerCase().contains('user already exists')) {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Email sudah terdaftar di Supabase. Silakan langsung masuk.',
+        );
+      }
+      if (e.message.toLowerCase().contains('invalid') && e.message.toLowerCase().contains('email')) {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Format email tidak diterima oleh Supabase. Gunakan email valid (misal @gmail.com).',
+        );
+      }
+      return AuthResult(
+        isSuccess: false,
+        message: 'Gagal mendaftar di Supabase: ${e.message}',
       );
     } catch (e) {
       return AuthResult(
@@ -142,137 +89,50 @@ class AuthRepository {
     }
   }
 
-  /// Login dengan email dan password menggunakan Supabase Auth
+  /// Login langsung ke Supabase Cloud Authentication & simpan sesi ke Preferences
   Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
-    final inputPasswordHash = CryptoHelper.hashPassword(password);
 
     try {
-      // 1. Autentikasi ke Supabase Cloud
-      AuthResponse? supabaseRes;
-      String? supabaseUserId;
-      String? userName;
-
-      try {
-        supabaseRes = await _supabaseService.signIn(
-          email: cleanEmail,
-          password: password,
-        );
-        supabaseUserId = supabaseRes.user?.id;
-        userName = supabaseRes.user?.userMetadata?['name'] as String?;
-        debugPrint('Supabase Auth login sukses: User ID = $supabaseUserId');
-      } on AuthException catch (e) {
-        debugPrint('Supabase AuthException login: ${e.message}');
-        if (e.message.toLowerCase().contains('email not confirmed')) {
-          return const AuthResult(
-            isSuccess: false,
-            message: 'Email belum dikonfirmasi di Supabase. Silakan periksa inbox email Anda, atau matikan "Confirm email" di Dashboard Supabase (Authentication -> Email).',
-          );
-        }
-        if (e.message.toLowerCase().contains('invalid login credentials') ||
-            e.message.toLowerCase().contains('invalid credentials')) {
-          return const AuthResult(
-            isSuccess: false,
-            message: 'Email atau kata sandi tidak sesuai. Silakan periksa kembali.',
-          );
-        }
-        return AuthResult(
+      final supabaseRes = await _supabaseService.signIn(
+        email: cleanEmail,
+        password: password,
+      );
+      final supabaseUser = supabaseRes.user;
+      if (supabaseUser == null) {
+        return const AuthResult(
           isSuccess: false,
-          message: 'Supabase Auth: ${e.message}',
+          message: 'Autentikasi Supabase gagal. Silakan coba lagi.',
         );
-      } catch (e) {
-        debugPrint('Supabase network unreachable, trying offline login: $e');
       }
 
-      // 2. Sinkronisasi sesi lokal ke SQLite
-      int localUserId = 1;
-      String? userPhoto;
-      try {
-        final db = await _dbHelper.database;
-        final result = await db.query(
-          'users',
-          where: 'LOWER(email) = ?',
-          whereArgs: [cleanEmail],
-        );
-
-        if (result.isNotEmpty) {
-          final userData = result.first;
-          localUserId = userData['id'] as int;
-          userPhoto = userData['profile_photo'] as String?;
-          final storedHash = userData['password_hash'] as String;
-
-          // Jika offline & Supabase tidak merespons, verifikasi hash lokal
-          if (supabaseRes == null && storedHash != inputPasswordHash) {
-            return const AuthResult(
-              isSuccess: false,
-              message: 'Kata sandi tidak sesuai (mode offline).',
-            );
-          }
-          userName = userName ?? (userData['name'] as String?);
-        } else {
-          if (supabaseRes == null) {
-            return const AuthResult(
-              isSuccess: false,
-              message: 'Akun belum tersimpan di perangkat ini dan koneksi internet offline.',
-            );
-          }
-          // User login berhasil dari Supabase tapi baru pertama kali di HP ini
-          final now = DateTime.now().toIso8601String();
-          userName = userName ?? 'Wisatawan Merapi';
-          localUserId = await db.insert('users', {
-            'name': userName,
-            'email': cleanEmail,
-            'password_hash': inputPasswordHash,
-            'supabase_id': supabaseUserId,
-            'is_biometric_enabled': 0,
-            'created_at': now,
-          });
-        }
-
-        // Sinkronkan avatar_url dari Supabase bila ada
-        if (supabaseRes?.user != null) {
-          final remoteAvatar = supabaseRes!.user!.userMetadata?['avatar_url'] as String?;
-          if (remoteAvatar != null && remoteAvatar.isNotEmpty) {
-            userPhoto = remoteAvatar;
-            await db.update(
-              'users',
-              {'profile_photo': userPhoto},
-              where: 'id = ?',
-              whereArgs: [localUserId],
-            );
-          }
-        }
-      } catch (dbError) {
-        debugPrint('SQLite sync warning: $dbError');
-        if (supabaseRes == null) {
-          return AuthResult(
-            isSuccess: false,
-            message: 'Mode offline gagal membuka database lokal: $dbError',
-          );
-        }
-      }
+      final supabaseUserId = supabaseUser.id;
+      final userName = (supabaseUser.userMetadata?['name'] as String?)?.trim() ?? 'Wisatawan Merapi';
+      final userPhoto = supabaseUser.userMetadata?['avatar_url'] as String?;
+      debugPrint('Supabase Auth login sukses: User ID = $supabaseUserId ($userName)');
 
       final user = UserModel(
-        id: localUserId,
+        id: 1,
         supabaseId: supabaseUserId,
-        name: userName ?? 'Wisatawan Merapi',
+        name: userName,
         email: cleanEmail,
         profilePhoto: userPhoto,
-        passwordHash: inputPasswordHash,
+        passwordHash: '',
         isBiometricEnabled: false,
-        createdAt: DateTime.now().toIso8601String(),
+        createdAt: supabaseUser.createdAt,
       );
 
+      // Simpan sesi aktif ke Preferences (Modul 6)
       final prefs = await PreferencesHelper.instance;
       await prefs.saveUserSession(
-        userId: localUserId,
+        userId: 1,
         supabaseId: supabaseUserId,
         email: cleanEmail,
         name: user.name,
-        token: supabaseRes?.session?.accessToken ?? 'token_$localUserId',
+        token: supabaseRes.session?.accessToken ?? 'session_active',
       );
       if (userPhoto != null && userPhoto.isNotEmpty) {
         await prefs.setUserPhoto(userPhoto);
@@ -282,6 +142,25 @@ class AuthRepository {
         isSuccess: true,
         message: 'Berhasil masuk ke MeraTrip!',
         user: user,
+      );
+    } on AuthException catch (e) {
+      debugPrint('Supabase AuthException login: ${e.message}');
+      if (e.message.toLowerCase().contains('email not confirmed')) {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Email belum dikonfirmasi di Supabase. Silakan periksa inbox email Anda, atau matikan "Confirm email" di Dashboard Supabase (Authentication -> Email).',
+        );
+      }
+      if (e.message.toLowerCase().contains('invalid login credentials') ||
+          e.message.toLowerCase().contains('invalid credentials')) {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Email atau kata sandi tidak sesuai. Silakan periksa kembali.',
+        );
+      }
+      return AuthResult(
+        isSuccess: false,
+        message: 'Supabase Auth: ${e.message}',
       );
     } catch (e) {
       return AuthResult(
@@ -299,48 +178,35 @@ class AuthRepository {
     );
   }
 
-  /// Memperoleh data profil user saat ini
+  /// Memperoleh data profil user saat ini dari SharedPreferences & Supabase
   Future<UserModel?> getCurrentUser() async {
     final prefs = await PreferencesHelper.instance;
-    final userId = prefs.getUserId();
-    if (userId == null) return null;
+    final email = prefs.getUserEmail();
+    if (email == null || email.isEmpty) return null;
 
-    final db = await _dbHelper.database;
-    final result = await db.query(
-      'users',
-      where: 'id = ?',
-      whereArgs: [userId],
+    final supabaseUser = _supabaseService.currentUser;
+    final name = prefs.getUserName() ?? (supabaseUser?.userMetadata?['name'] as String?) ?? 'Wisatawan Merapi';
+    final photo = prefs.getUserPhoto() ?? (supabaseUser?.userMetadata?['avatar_url'] as String?);
+
+    return UserModel(
+      id: prefs.getUserId() ?? 1,
+      supabaseId: prefs.getSupabaseId() ?? supabaseUser?.id,
+      name: name,
+      email: email,
+      profilePhoto: photo,
+      passwordHash: '',
+      isBiometricEnabled: prefs.isBiometricEnabled(),
+      createdAt: supabaseUser?.createdAt ?? DateTime.now().toIso8601String(),
     );
-
-    if (result.isEmpty) return null;
-    return UserModel.fromMap(result.first);
   }
 
-  /// Memperbarui nama dan/atau foto profil pengguna ke Supabase & SQLite lokal
+  /// Memperbarui nama dan/atau foto profil pengguna ke Supabase & Preferences
   Future<AuthResult> updateProfile({
     required int userId,
     String? name,
     String? profilePhoto,
   }) async {
     try {
-      final db = await _dbHelper.database;
-      final updateData = <String, Object?>{};
-      if (name != null && name.trim().isNotEmpty) {
-        updateData['name'] = name.trim();
-      }
-      if (profilePhoto != null) {
-        updateData['profile_photo'] = profilePhoto;
-      }
-
-      if (updateData.isNotEmpty) {
-        await db.update(
-          'users',
-          updateData,
-          where: 'id = ?',
-          whereArgs: [userId],
-        );
-      }
-
       final prefs = await PreferencesHelper.instance;
       if (name != null && name.trim().isNotEmpty) {
         await prefs.setUserName(name.trim());
@@ -393,7 +259,7 @@ class AuthRepository {
     }
   }
 
-  /// Verifikasi kata sandi akun via Supabase saat biometrik gagal atau dipilih alternatif
+  /// Verifikasi kata sandi akun langsung via Supabase
   Future<AuthResult> verifyAccountPassword({
     required String email,
     required String password,
@@ -422,7 +288,6 @@ class AuthRepository {
         );
       }
 
-      // Perbarui sesi aktif di Preferences tanpa mengubah struktur trip atau data penting lainnya
       final prefs = await PreferencesHelper.instance;
       final userId = prefs.getUserId() ?? 1;
       await prefs.saveUserSession(
@@ -433,11 +298,11 @@ class AuthRepository {
         token: session.accessToken,
       );
 
-      final dbUser = await getCurrentUser();
+      final currentUser = await getCurrentUser();
       return AuthResult(
         isSuccess: true,
         message: 'Kata sandi akun berhasil diverifikasi.',
-        user: dbUser ?? UserModel(
+        user: currentUser ?? UserModel(
           id: userId,
           supabaseId: user.id,
           name: user.userMetadata?['name'] ?? 'Wisatawan Merapi',
