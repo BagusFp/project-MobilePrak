@@ -69,41 +69,44 @@ class AuthRepository {
       }
 
       // 2. Simpan atau perbarui akun di SQLite lokal untuk cache offline
-      final db = await _dbHelper.database;
+      int localUserId = 1;
       final passwordHash = CryptoHelper.hashPassword(password);
       final now = DateTime.now().toIso8601String();
-
-      int localUserId;
-      final existing = await db.query(
-        'users',
-        where: 'LOWER(email) = ?',
-        whereArgs: [cleanEmail],
-      );
-
-      if (existing.isNotEmpty) {
-        localUserId = existing.first['id'] as int;
-        final updateData = <String, Object?>{
-          'name': cleanName,
-          'password_hash': passwordHash,
-        };
-        if (supabaseUserId != null) {
-          updateData['supabase_id'] = supabaseUserId;
-        }
-        await db.update(
+      try {
+        final db = await _dbHelper.database;
+        final existing = await db.query(
           'users',
-          updateData,
-          where: 'id = ?',
-          whereArgs: [localUserId],
+          where: 'LOWER(email) = ?',
+          whereArgs: [cleanEmail],
         );
-      } else {
-        localUserId = await db.insert('users', {
-          'name': cleanName,
-          'email': cleanEmail,
-          'password_hash': passwordHash,
-          'supabase_id': supabaseUserId,
-          'is_biometric_enabled': 0,
-          'created_at': now,
-        });
+
+        if (existing.isNotEmpty) {
+          localUserId = existing.first['id'] as int;
+          final updateData = <String, Object?>{
+            'name': cleanName,
+            'password_hash': passwordHash,
+          };
+          if (supabaseUserId != null) {
+            updateData['supabase_id'] = supabaseUserId;
+          }
+          await db.update(
+            'users',
+            updateData,
+            where: 'id = ?',
+            whereArgs: [localUserId],
+          );
+        } else {
+          localUserId = await db.insert('users', {
+            'name': cleanName,
+            'email': cleanEmail,
+            'password_hash': passwordHash,
+            'supabase_id': supabaseUserId,
+            'is_biometric_enabled': 0,
+            'created_at': now,
+          });
+        }
+      } catch (dbError) {
+        debugPrint('SQLite register sync warning: $dbError');
       }
 
       final newUser = UserModel(
@@ -185,53 +188,69 @@ class AuthRepository {
       }
 
       // 2. Sinkronisasi sesi lokal ke SQLite
-      final db = await _dbHelper.database;
-      final result = await db.query(
-        'users',
-        where: 'LOWER(email) = ?',
-        whereArgs: [cleanEmail],
-      );
-
       int localUserId = 1;
       String? userPhoto;
-      if (result.isNotEmpty) {
-        final userData = result.first;
-        localUserId = userData['id'] as int;
-        userPhoto = userData['profile_photo'] as String?;
-        final storedHash = userData['password_hash'] as String;
+      try {
+        final db = await _dbHelper.database;
+        final result = await db.query(
+          'users',
+          where: 'LOWER(email) = ?',
+          whereArgs: [cleanEmail],
+        );
 
-        // Jika offline & Supabase tidak merespons, verifikasi hash lokal
-        if (supabaseRes == null && storedHash != inputPasswordHash) {
-          return const AuthResult(
-            isSuccess: false,
-            message: 'Kata sandi tidak sesuai (mode offline).',
-          );
+        if (result.isNotEmpty) {
+          final userData = result.first;
+          localUserId = userData['id'] as int;
+          userPhoto = userData['profile_photo'] as String?;
+          final storedHash = userData['password_hash'] as String;
+
+          // Jika offline & Supabase tidak merespons, verifikasi hash lokal
+          if (supabaseRes == null && storedHash != inputPasswordHash) {
+            return const AuthResult(
+              isSuccess: false,
+              message: 'Kata sandi tidak sesuai (mode offline).',
+            );
+          }
+          userName = userName ?? (userData['name'] as String?);
+        } else {
+          if (supabaseRes == null) {
+            return const AuthResult(
+              isSuccess: false,
+              message: 'Akun belum tersimpan di perangkat ini dan koneksi internet offline.',
+            );
+          }
+          // User login berhasil dari Supabase tapi baru pertama kali di HP ini
+          final now = DateTime.now().toIso8601String();
+          userName = userName ?? 'Wisatawan Merapi';
+          localUserId = await db.insert('users', {
+            'name': userName,
+            'email': cleanEmail,
+            'password_hash': inputPasswordHash,
+            'supabase_id': supabaseUserId,
+            'is_biometric_enabled': 0,
+            'created_at': now,
+          });
         }
-        userName = userName ?? (userData['name'] as String?);
-      } else {
-        // User login berhasil dari Supabase tapi baru pertama kali di HP ini
-        final now = DateTime.now().toIso8601String();
-        userName = userName ?? 'Wisatawan Merapi';
-        localUserId = await db.insert('users', {
-          'name': userName,
-          'email': cleanEmail,
-          'password_hash': inputPasswordHash,
-          'supabase_id': supabaseUserId,
-          'is_biometric_enabled': 0,
-          'created_at': now,
-        });
-      }
 
-      // Sinkronkan avatar_url dari Supabase bila ada
-      if (supabaseRes?.user != null) {
-        final remoteAvatar = supabaseRes!.user!.userMetadata?['avatar_url'] as String?;
-        if (remoteAvatar != null && remoteAvatar.isNotEmpty) {
-          userPhoto = remoteAvatar;
-          await db.update(
-            'users',
-            {'profile_photo': userPhoto},
-            where: 'id = ?',
-            whereArgs: [localUserId],
+        // Sinkronkan avatar_url dari Supabase bila ada
+        if (supabaseRes?.user != null) {
+          final remoteAvatar = supabaseRes!.user!.userMetadata?['avatar_url'] as String?;
+          if (remoteAvatar != null && remoteAvatar.isNotEmpty) {
+            userPhoto = remoteAvatar;
+            await db.update(
+              'users',
+              {'profile_photo': userPhoto},
+              where: 'id = ?',
+              whereArgs: [localUserId],
+            );
+          }
+        }
+      } catch (dbError) {
+        debugPrint('SQLite sync warning: $dbError');
+        if (supabaseRes == null) {
+          return AuthResult(
+            isSuccess: false,
+            message: 'Mode offline gagal membuka database lokal: $dbError',
           );
         }
       }

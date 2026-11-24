@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -7,6 +8,7 @@ import '../../data/models/trip_expense_model.dart';
 import '../../data/models/trip_item_model.dart';
 import '../../data/models/trip_model.dart';
 import '../utils/crypto_helper.dart';
+import 'platform_database_factory.dart';
 import 'preferences_helper.dart';
 
 class DatabaseHelper {
@@ -30,21 +32,25 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
+    initPlatformDatabaseFactory();
     final isUnderFlutterTest =
         WidgetsBinding.instance.runtimeType.toString().contains('Test');
     final String path;
     if (isUnderFlutterTest) {
       path = inMemoryDatabasePath;
+    } else if (kIsWeb) {
+      path = _databaseName;
     } else {
       final dbPath = await getDatabasesPath();
       path = join(dbPath, _databaseName);
     }
 
-    return await openDatabase(
-      path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
-      onOpen: (db) async {
+    try {
+      return await openDatabase(
+        path,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onOpen: (db) async {
         try {
           await db.execute('ALTER TABLE users ADD COLUMN supabase_id TEXT');
         } catch (_) {}
@@ -129,6 +135,14 @@ class DatabaseHelper {
         } catch (_) {}
       },
     );
+    } catch (e) {
+      debugPrint('DatabaseHelper._initDatabase error: $e. Falling back to inMemoryDatabase.');
+      return await openDatabase(
+        inMemoryDatabasePath,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {

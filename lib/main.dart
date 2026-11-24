@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -23,12 +24,14 @@ import 'features/sensor/sensor_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'core/config/supabase_config.dart';
+import 'core/database/platform_database_factory.dart';
 import 'core/database/trip_local_db.dart';
 import 'core/services/notification_service.dart';
 import 'features/trip/trip_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initPlatformDatabaseFactory();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -205,7 +208,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
     if (photo != null && photo.isNotEmpty) {
       if (photo.startsWith('http')) {
         imageProvider = NetworkImage(photo);
-      } else {
+      } else if (!kIsWeb) {
         final f = File(photo);
         if (f.existsSync()) {
           imageProvider = FileImage(f);
@@ -361,7 +364,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
                 backgroundImage: (user.profilePhoto != null && user.profilePhoto!.isNotEmpty)
                     ? (user.profilePhoto!.startsWith('http')
                         ? NetworkImage(user.profilePhoto!) as ImageProvider
-                        : (File(user.profilePhoto!).existsSync()
+                        : (!kIsWeb && File(user.profilePhoto!).existsSync()
                             ? FileImage(File(user.profilePhoto!))
                             : null))
                     : null,
