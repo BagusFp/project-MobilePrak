@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/notification/notification_model.dart';
 
+/// [MODUL 6 - Local Storage: SharedPreferences]
+/// Menyimpan data sederhana berbasis key-value (sesi login, nama, email, foto profil) secara persisten.
 class PreferencesHelper {
   static const String _keyUserId = 'user_id';
   static const String _keySupabaseId = 'supabase_id';

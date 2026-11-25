@@ -148,7 +148,8 @@ class NotificationService {
     }
   }
 
-  /// Menampilkan Notifikasi Instan di Status Bar / Bilah Notifikasi HP
+  /// [MODUL 7 - Immediate Notification]
+  /// Menampilkan notifikasi instan langsung ke status bar perangkat saat dipicu.
   Future<void> showInstantNotification({
     required int id,
     required String title,
@@ -199,7 +200,8 @@ class NotificationService {
     }
   }
 
-  /// Menjadwalkan Pengingat Trip pada Waktu Spesifik (Tanggal & Jam Presisi)
+  /// [MODUL 7 - Scheduled Notification]
+  /// Menjadwalkan pengingat trip menggunakan zonedSchedule agar tetap aktif walau aplikasi ditutup.
   Future<void> scheduleTripReminderAtTime({
     required int tripId,
     required String tripTitle,

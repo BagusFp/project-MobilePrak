@@ -12,6 +12,8 @@ import '../map/map_screen.dart';
 import 'destination_detail_screen.dart';
 import 'destination_provider.dart';
 
+/// [MODUL 3 - State & Data]
+/// Menggunakan StatefulWidget karena halaman memiliki state pencarian & filter dinamis.
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -20,6 +22,7 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
+  // [MODUL 3] TextEditingController untuk membaca & mengontrol input pada kolom pencarian
   final TextEditingController _searchController = TextEditingController();
 
   @override

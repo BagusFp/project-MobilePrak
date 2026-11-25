@@ -15,6 +15,8 @@ import '../trip/my_trip_screen.dart';
 import '../trip/trip_provider.dart';
 import 'destination_provider.dart';
 
+/// [MODUL 4 - Passing Data antar Halaman]
+/// Menerima object [destination] melalui constructor (parameter required) dari Explore/Home.
 class DestinationDetailScreen extends StatefulWidget {
   final DestinationModel destination;
 
@@ -44,6 +46,7 @@ class _DestinationDetailScreenState extends State<DestinationDetailScreen> {
         await tripProvider.loadUserTrips(auth.currentUser?.id ?? 1);
       }
       if (mounted && tripProvider.isDestinationInTrip(widget.destination.id)) {
+        // [MODUL 3 - setState()] Memicu rebuild UI agar status tombol berubah saat destinasi sudah ada di trip
         setState(() {
           _isTripAdded = true;
         });

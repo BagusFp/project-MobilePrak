@@ -6,8 +6,10 @@ import '../../core/utils/geo_helper.dart';
 import '../../data/mock/mock_destinations.dart';
 import '../../data/models/destination_model.dart';
 
+/// [OOP - Encapsulation & Inheritance]
+/// MapProvider mewarisi ChangeNotifier dan membungkus state lokasi dengan field private (_) + getter public.
 class MapProvider extends ChangeNotifier {
-  // State Navigasi & Map
+  // State Navigasi & Map (private agar hanya bisa diubah lewat method terkontrol)
   DestinationModel? _selectedDestination;
   String _viewMode = 'map'; // 'map' atau 'list'
   double _userLat = GeoHelper.userDefaultLat;
@@ -81,7 +83,8 @@ class MapProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mengambil lokasi asli GPS ponsel saat ini secara real-time
+  /// [MODUL 7 - LBS (Location-Based Services)]
+  /// Cek status layanan GPS, meminta permission lokasi, lalu mengambil koordinat lat/lng via Geolocator.
   Future<bool> fetchLiveLocation() async {
     _isLocating = true;
     _locationStatusMessage = 'Menghubungkan ke sensor GPS ponsel...';

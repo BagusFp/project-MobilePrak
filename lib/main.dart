@@ -85,11 +85,17 @@ class MeraTripApp extends StatelessWidget {
         if (authProvider != null)
           ChangeNotifierProvider<AuthProvider>.value(value: authProvider!)
         else
-          ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()..init()),
+          ChangeNotifierProvider<AuthProvider>(
+            create: (_) => AuthProvider()..init(),
+          ),
         if (destinationProvider != null)
-          ChangeNotifierProvider<DestinationProvider>.value(value: destinationProvider!)
+          ChangeNotifierProvider<DestinationProvider>.value(
+            value: destinationProvider!,
+          )
         else
-          ChangeNotifierProvider<DestinationProvider>(create: (_) => DestinationProvider()),
+          ChangeNotifierProvider<DestinationProvider>(
+            create: (_) => DestinationProvider(),
+          ),
         if (tripProvider != null)
           ChangeNotifierProvider<TripProvider>.value(value: tripProvider!)
         else
@@ -101,11 +107,17 @@ class MeraTripApp extends StatelessWidget {
         if (sensorProvider != null)
           ChangeNotifierProvider<SensorProvider>.value(value: sensorProvider!)
         else
-          ChangeNotifierProvider<SensorProvider>(create: (_) => SensorProvider()),
+          ChangeNotifierProvider<SensorProvider>(
+            create: (_) => SensorProvider(),
+          ),
         if (notificationProvider != null)
-          ChangeNotifierProvider<NotificationProvider>.value(value: notificationProvider!)
+          ChangeNotifierProvider<NotificationProvider>.value(
+            value: notificationProvider!,
+          )
         else
-          ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider<NotificationProvider>(
+            create: (_) => NotificationProvider(),
+          ),
       ],
       child: MaterialApp(
         title: 'MerapiTrip',
@@ -199,9 +211,15 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
   }
 
   /// Menampilkan ikon avatar profil (dengan gambar jika ada) di navigasi bar
-  Widget _buildNavAvatar(UserModel? user, {required bool isSelected, bool isNarrow = false}) {
+  Widget _buildNavAvatar(
+    UserModel? user, {
+    required bool isSelected,
+    bool isNarrow = false,
+  }) {
     final photo = user?.profilePhoto;
-    final initial = (user?.name.isNotEmpty == true) ? user!.name[0].toUpperCase() : 'P';
+    final initial = (user?.name.isNotEmpty == true)
+        ? user!.name[0].toUpperCase()
+        : 'P';
     ImageProvider? imageProvider;
     if (photo != null && photo.isNotEmpty) {
       if (photo.startsWith('http')) {
@@ -225,9 +243,13 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
       ),
       child: CircleAvatar(
         radius: isNarrow ? 9.5 : 11,
-        backgroundColor: isSelected ? AppColors.primary : AppColors.secondaryContainer,
+        backgroundColor: isSelected
+            ? AppColors.primary
+            : AppColors.secondaryContainer,
         backgroundImage: imageProvider,
-        onBackgroundImageError: imageProvider != null ? (exception, stackTrace) {} : null,
+        onBackgroundImageError: imageProvider != null
+            ? (exception, stackTrace) {}
+            : null,
         child: imageProvider == null
             ? Text(
                 initial,
@@ -248,7 +270,9 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDimensions.radiusXl)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.radiusXl),
+        ),
       ),
       builder: (sheetCtx) => SafeArea(
         child: SingleChildScrollView(
@@ -272,17 +296,25 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
                   color: AppColors.errorContainer,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.logout, color: AppColors.error, size: 28),
+                child: const Icon(
+                  Icons.logout,
+                  color: AppColors.error,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 'Akhiri Sesi Penjelajahan?',
-                style: AppTypography.headlineSm.copyWith(fontWeight: FontWeight.bold),
+                style: AppTypography.headlineSm.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 'Sesi akun akan diakhiri dan aplikasi kembali ke layar login.',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
@@ -299,7 +331,9 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
                     backgroundColor: AppColors.error,
                     foregroundColor: AppColors.onError,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusMd,
+                      ),
                     ),
                   ),
                   child: const Text(
@@ -338,7 +372,10 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
             isLabelVisible: notifProvider.unreadCount > 0,
             label: Text('${notifProvider.unreadCount}'),
             backgroundColor: AppColors.error,
-            child: const Icon(Icons.notifications_none_rounded, color: AppColors.primary),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: AppColors.primary,
+            ),
           ),
           onPressed: () {
             Navigator.push(
@@ -359,26 +396,33 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
               child: CircleAvatar(
                 radius: 16,
                 backgroundColor: AppColors.primaryContainer,
-                backgroundImage: (user.profilePhoto != null && user.profilePhoto!.isNotEmpty)
+                backgroundImage:
+                    (user.profilePhoto != null && user.profilePhoto!.isNotEmpty)
                     ? (user.profilePhoto!.startsWith('http')
-                        ? NetworkImage(user.profilePhoto!) as ImageProvider
-                        : (!kIsWeb && File(user.profilePhoto!).existsSync()
-                            ? FileImage(File(user.profilePhoto!))
-                            : null))
+                          ? NetworkImage(user.profilePhoto!) as ImageProvider
+                          : (!kIsWeb && File(user.profilePhoto!).existsSync()
+                                ? FileImage(File(user.profilePhoto!))
+                                : null))
                     : null,
-                onBackgroundImageError: (user.profilePhoto != null && user.profilePhoto!.isNotEmpty)
+                onBackgroundImageError:
+                    (user.profilePhoto != null && user.profilePhoto!.isNotEmpty)
                     ? (exception, stackTrace) {}
                     : null,
                 child: (user.profilePhoto == null || user.profilePhoto!.isEmpty)
                     ? Text(
                         user.name.isNotEmpty ? user.name[0].toUpperCase() : 'P',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       )
                     : null,
               ),
             ),
           ),
       ],
+      // [MODUL 4 - Indexed Navigation] Mengganti halaman berdasarkan _currentTabIndex tanpa menumpuk stack
       body: IndexedStack(
         index: _currentTabIndex.clamp(0, 4),
         children: [
@@ -412,6 +456,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
             iconSize: isNarrow ? 20 : 24,
             selectedItemColor: AppColors.primary,
             unselectedItemColor: AppColors.onSurfaceVariant,
+            // [MODUL 4 - BottomNavigationBar] onTap memperbarui index dan memanggil setState() untuk rebuild UI
             onTap: (index) {
               if (index == 5) {
                 _showLogoutConfirmation(context, authProvider);
@@ -443,8 +488,16 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
                 label: 'PAM',
               ),
               BottomNavigationBarItem(
-                icon: _buildNavAvatar(user, isSelected: false, isNarrow: isNarrow),
-                activeIcon: _buildNavAvatar(user, isSelected: true, isNarrow: isNarrow),
+                icon: _buildNavAvatar(
+                  user,
+                  isSelected: false,
+                  isNarrow: isNarrow,
+                ),
+                activeIcon: _buildNavAvatar(
+                  user,
+                  isSelected: true,
+                  isNarrow: isNarrow,
+                ),
                 label: 'Profil',
               ),
               const BottomNavigationBarItem(

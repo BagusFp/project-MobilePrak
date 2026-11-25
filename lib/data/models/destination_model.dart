@@ -1,5 +1,8 @@
 import 'base_entity.dart';
 
+/// [OOP - Abstraction & Polymorphism]
+/// DestinationModel mengimplementasikan kontrak BaseEntity (wajib override id & toMap).
+/// [OOP - Constructor] Menggunakan Named Constructor dengan parameter required & default.
 class DestinationModel implements BaseEntity {
   @override
   final int id;

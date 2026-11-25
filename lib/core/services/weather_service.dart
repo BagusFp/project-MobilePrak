@@ -27,7 +27,8 @@ class DestinationWeather {
   String get displayTemp => '${currentTemp.toStringAsFixed(1)}°C';
 
   /// Keterangan status cuaca
-  String get subValue => isLive ? 'Live • $condition' : 'Elevasi mdpl • $condition';
+  String get subValue =>
+      isLive ? 'Live • $condition' : 'Elevasi mdpl • $condition';
 }
 
 /// Service cuaca & suhu real-time untuk destinasi lereng Merapi
@@ -36,14 +37,16 @@ class DestinationWeather {
 class WeatherService {
   static final Map<String, DestinationWeather> _cache = {};
 
-  /// Mengambil data suhu & cuaca live untuk koordinat dan elevasi destinasi tertentu
+  /// [MODUL 5 - HTTP Request & Asynchronous (Future, async, await)]
+  /// Mengambil data suhu & cuaca live dari REST API Open-Meteo (GET + jsonDecode).
   static Future<DestinationWeather> getWeatherForDestination({
     required double latitude,
     required double longitude,
     required int elevationMdpl,
     String? fallbackRange,
   }) async {
-    final cacheKey = '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)}';
+    final cacheKey =
+        '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)}';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }
@@ -67,8 +70,12 @@ class WeatherService {
 
         final minList = daily['temperature_2m_min'] as List;
         final maxList = daily['temperature_2m_max'] as List;
-        final minTemp = minList.isNotEmpty ? (minList[0] as num).toDouble() : (currentTemp - 4.0);
-        final maxTemp = maxList.isNotEmpty ? (maxList[0] as num).toDouble() : (currentTemp + 4.0);
+        final minTemp = minList.isNotEmpty
+            ? (minList[0] as num).toDouble()
+            : (currentTemp - 4.0);
+        final maxTemp = maxList.isNotEmpty
+            ? (maxList[0] as num).toDouble()
+            : (currentTemp + 4.0);
 
         final condition = _getWeatherCondition(code);
 
@@ -85,7 +92,9 @@ class WeatherService {
         return weather;
       }
     } catch (e) {
-      debugPrint('WeatherService fetch live error (using elevation lapse fallback): $e');
+      debugPrint(
+        'WeatherService fetch live error (using elevation lapse fallback): $e',
+      );
     }
 
     // Fallback ilmiah berbasis lapse rate ketinggian mdpl Gunung Merapi
