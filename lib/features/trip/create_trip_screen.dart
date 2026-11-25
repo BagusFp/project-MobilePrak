@@ -1,10 +1,7 @@
-import 'dart:async';
-import 'dart:math';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_typography.dart';
@@ -37,7 +34,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   late TextEditingController _budgetController;
   String _selectedCurrency = 'IDR';
   String _selectedCurrencyDisplay = 'IDR (Rp)';
-  String _selectedTimezoneDisplay = 'WIB (GMT+7) – Lokal Merapi';
+  String _selectedTimezoneDisplay = 'WIB (GMT+7) â€“ Lokal Merapi';
   DateTime _selectedDate = DateTime.now();
   bool _isReminderEnabled = true;
   String _selectedReminderDisplay = 'H-1 Jam Sebelum Perjalanan (06:30 WIB)';
@@ -96,9 +93,6 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     return trigger;
   }
 
-  StreamSubscription<AccelerometerEvent>? _shakeSubscription;
-  DateTime _lastShakeTime = DateTime.now();
-  bool _isGachaOpen = false;
   bool _isSavingDraft = false;
   bool _isSavingTrip = false;
   String _savingStatusText = 'Menyimpan trip...';
@@ -146,9 +140,9 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       case 'SGD':
         return r'S$ ';
       case 'EUR':
-        return '€ ';
+        return 'â‚¬ ';
       case 'JPY':
-        return '¥ ';
+        return 'Â¥ ';
       case 'MYR':
         return 'RM ';
       default:
@@ -179,13 +173,13 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           _selectedCurrencyDisplay = r'USD ($)';
           break;
         case 'EUR':
-          _selectedCurrencyDisplay = 'EUR (€)';
+          _selectedCurrencyDisplay = 'EUR (â‚¬)';
           break;
         case 'SGD':
           _selectedCurrencyDisplay = r'SGD (S$)';
           break;
         case 'JPY':
-          _selectedCurrencyDisplay = 'JPY (¥)';
+          _selectedCurrencyDisplay = 'JPY (Â¥)';
           break;
         case 'MYR':
           _selectedCurrencyDisplay = 'MYR (RM)';
@@ -201,12 +195,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         widget.existingTrip!.originTimezone!.isNotEmpty) {
       final origin = widget.existingTrip!.originTimezone!;
       const availableTimezones = [
-        'WIB (GMT+7) – Lokal Merapi',
-        'WITA (GMT+8) – Bali/Makassar',
-        'WIT (GMT+9) – Maluku/Papua',
-        'UTC (GMT+0) – Internasional',
-        'JST (GMT+9) – Tokyo',
-        'SGT (GMT+8) – Singapura',
+        'WIB (GMT+7) â€“ Lokal Merapi',
+        'WITA (GMT+8) â€“ Bali/Makassar',
+        'WIT (GMT+9) â€“ Maluku/Papua',
+        'UTC (GMT+0) â€“ Internasional',
+        'JST (GMT+9) â€“ Tokyo',
+        'SGT (GMT+8) â€“ Singapura',
       ];
       final matchedTz = availableTimezones.firstWhere(
         (tz) {
@@ -216,7 +210,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           final code = tz.substring(0, 3);
           return origin.contains(code);
         },
-        orElse: () => 'WIB (GMT+7) – Lokal Merapi',
+        orElse: () => 'WIB (GMT+7) â€“ Lokal Merapi',
       );
       _selectedTimezoneDisplay = matchedTz;
     }
@@ -234,7 +228,6 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     }
     _budgetController = TextEditingController(text: initialBudgetText);
 
-    _initShakeSensor();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final tripProvider = context.read<TripProvider>();
 
@@ -266,81 +259,9 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
   @override
   void dispose() {
-    _shakeSubscription?.cancel();
     _tripNameController.dispose();
     _budgetController.dispose();
     super.dispose();
-  }
-
-  void _initShakeSensor() {
-    try {
-      _shakeSubscription = accelerometerEventStream().listen(
-        (event) {
-          if (!mounted || _currentStep != 2 || _isGachaOpen) return;
-          final double gForce = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-          // Deteksi hentakan goyang ponsel (> 14.5 m/s^2)
-          if (gForce > 14.5) {
-            final now = DateTime.now();
-            if (now.difference(_lastShakeTime).inMilliseconds > 1600) {
-              _lastShakeTime = now;
-              HapticFeedback.heavyImpact();
-              _openGachaShakeDialog(context);
-            }
-          }
-        },
-        onError: (err) {
-          debugPrint('Shake sensor in create trip unavailable: $err');
-        },
-      );
-    } catch (e) {
-      debugPrint('Shake sensor init catch: $e');
-    }
-  }
-
-  void _openGachaShakeDialog(BuildContext context) {
-    if (_isGachaOpen) return;
-    final destProvider = context.read<DestinationProvider>();
-    final tripProvider = context.read<TripProvider>();
-    final destinations = destProvider.allDestinations;
-
-    if (destinations.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Daftar destinasi belum termuat.'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isGachaOpen = true;
-    });
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => _GachaShakeDestinationDialog(
-        availableDestinations: destinations,
-        existingItems: tripProvider.builderItems,
-        onAddDestination: (selectedDest) {
-          tripProvider.addDestinationToBuilder(selectedDest);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('🎉 ${selectedDest.name} berhasil ditambahkan ke rute trip!'),
-              backgroundColor: AppColors.primary,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {
-          _isGachaOpen = false;
-        });
-      }
-    });
   }
 
   String get _stepProgressLabel {
@@ -838,7 +759,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'Perjalanan via $road ($timeMins mnt • ${distKm.toStringAsFixed(1)} km)',
+              'Perjalanan via $road ($timeMins mnt â€¢ ${distKm.toStringAsFixed(1)} km)',
               style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF475569),
@@ -919,58 +840,6 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _openGachaShakeDialog(context);
-                      },
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryContainer,
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                          border: Border.all(
-                            color: AppColors.primary.withAlpha(60),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.screen_rotation_alt, size: 20, color: AppColors.primary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Bingung Memilih? Goyang HP untuk Destinasi',
-                                    style: AppTypography.labelMd.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    'Kocok ponselmu secara fisik dengan sensor akselerometer',
-                                    style: AppTypography.bodySm.copyWith(
-                                      color: AppColors.onSecondaryContainer,
-                                      fontSize: 10.5,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.primary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.separated(
@@ -1033,7 +902,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${dest.categoryName} • ${_formatCurrency(dest.ticketPrice)}',
+                                      '${dest.categoryName} â€¢ ${_formatCurrency(dest.ticketPrice)}',
                                       style: AppTypography.bodySm.copyWith(
                                         color: AppColors.onSurfaceVariant,
                                       ),
@@ -1725,150 +1594,6 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-
-                  // Gamified Kocok HP / Gacha Destination Banner (Enlarged)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.margin,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFECFDF5),
-                            const Color(0xFFFEF3C7).withAlpha(180),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFF6EE7B7),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF059669).withAlpha(15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF045E44),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withAlpha(30),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.screen_rotation_alt_rounded,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Bingung Mau ke Mana?',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 7,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFD97706),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Text(
-                                            'GACHA',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'Fitur Sensor Gyroscope & Accelerometer',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: Color(0xFF059669),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Goyangkan HP Anda secara nyata atau ketuk tombol di bawah untuk mendapatkan rekomendasi destinasi acak terbaik di kawasan lereng Merapi.',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF334155),
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 40,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF045E44),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              onPressed: () => _openGachaShakeDialog(context),
-                              icon: const Icon(Icons.screen_rotation_alt_rounded, size: 18),
-                              label: const Text(
-                                'Goyang HP / Buka Rekomendasi Gacha',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: AppDimensions.spaceMd),
 
                   // 6. Live Estimate & Budget Summary Card
@@ -1987,7 +1712,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                   Text(
                                     _selectedCurrency == 'IDR'
                                         ? _formatIdr(targetBudgetIdr)
-                                        : '${_getCurrencySymbol(_selectedCurrency)}${userBudget.toStringAsFixed(0)} (≈ ${_formatIdr(targetBudgetIdr)})',
+                                        : '${_getCurrencySymbol(_selectedCurrency)}${userBudget.toStringAsFixed(0)} (â‰ˆ ${_formatIdr(targetBudgetIdr)})',
                                     style: AppTypography.bodySm.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: const Color(0xFF0F172A),
@@ -2182,8 +1907,8 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                             if (_selectedCurrency != 'IDR')
                                               Text(
                                                 isOverBudget
-                                                    ? '≈ - ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget.abs() / (rate > 0 ? rate : 1)).toStringAsFixed(1)}'
-                                                    : '≈ ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget / (rate > 0 ? rate : 1)).toStringAsFixed(1)}',
+                                                    ? 'â‰ˆ - ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget.abs() / (rate > 0 ? rate : 1)).toStringAsFixed(1)}'
+                                                    : 'â‰ˆ ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget / (rate > 0 ? rate : 1)).toStringAsFixed(1)}',
                                                 style: AppTypography.bodySm.copyWith(
                                                   color: isOverBudget
                                                       ? const Color(0xFFBE123C)
@@ -2276,7 +2001,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Perhatian: Estimasi biaya perjalanan melebihi target anggaran sebesar ${_formatIdr(remainingBudget.abs())}${_selectedCurrency != 'IDR' ? ' (≈ ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget.abs() / (rate > 0 ? rate : 1)).toStringAsFixed(1)})' : ''}. Harap kurangi destinasi berbayar atau sesuaikan budget di Langkah 1.',
+                                      'Perhatian: Estimasi biaya perjalanan melebihi target anggaran sebesar ${_formatIdr(remainingBudget.abs())}${_selectedCurrency != 'IDR' ? ' (â‰ˆ ${_getCurrencySymbol(_selectedCurrency)}${(remainingBudget.abs() / (rate > 0 ? rate : 1)).toStringAsFixed(1)})' : ''}. Harap kurangi destinasi berbayar atau sesuaikan budget di Langkah 1.',
                                       style: AppTypography.bodySm.copyWith(
                                         color: const Color(0xFF9F1239),
                                         fontSize: 12,
@@ -3208,9 +2933,9 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                           items: const [
                             DropdownMenuItem(value: 'IDR (Rp)', child: Text('IDR (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                             DropdownMenuItem(value: r'USD ($)', child: Text(r'USD ($)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                            DropdownMenuItem(value: 'EUR (€)', child: Text('EUR (€)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'EUR (â‚¬)', child: Text('EUR (â‚¬)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                             DropdownMenuItem(value: r'SGD (S$)', child: Text(r'SGD (S$)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                            DropdownMenuItem(value: 'JPY (¥)', child: Text('JPY (¥)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'JPY (Â¥)', child: Text('JPY (Â¥)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                             DropdownMenuItem(value: 'MYR (RM)', child: Text('MYR (RM)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                           ],
                           onChanged: (val) {
@@ -3266,12 +2991,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                       isExpanded: true,
                       value: _selectedTimezoneDisplay,
                       items: const [
-                        DropdownMenuItem(value: 'WIB (GMT+7) – Lokal Merapi', child: Text('WIB (GMT+7) – Lokal Merapi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'WITA (GMT+8) – Bali/Makassar', child: Text('WITA (GMT+8) – Bali/Makassar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'WIT (GMT+9) – Maluku/Papua', child: Text('WIT (GMT+9) – Maluku/Papua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'UTC (GMT+0) – Internasional', child: Text('UTC (GMT+0) – Internasional', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'JST (GMT+9) – Tokyo', child: Text('JST (GMT+9) – Tokyo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'SGT (GMT+8) – Singapura', child: Text('SGT (GMT+8) – Singapura', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'WIB (GMT+7) â€“ Lokal Merapi', child: Text('WIB (GMT+7) â€“ Lokal Merapi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'WITA (GMT+8) â€“ Bali/Makassar', child: Text('WITA (GMT+8) â€“ Bali/Makassar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'WIT (GMT+9) â€“ Maluku/Papua', child: Text('WIT (GMT+9) â€“ Maluku/Papua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'UTC (GMT+0) â€“ Internasional', child: Text('UTC (GMT+0) â€“ Internasional', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'JST (GMT+9) â€“ Tokyo', child: Text('JST (GMT+9) â€“ Tokyo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'SGT (GMT+8) â€“ Singapura', child: Text('SGT (GMT+8) â€“ Singapura', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -3399,7 +3124,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${DateFormat('dd MMM yyyy').format(_selectedDate)} • ${tripProvider.builderTrip?.participantCount ?? 2} Orang',
+                            '${DateFormat('dd MMM yyyy').format(_selectedDate)} â€¢ ${tripProvider.builderTrip?.participantCount ?? 2} Orang',
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -4164,750 +3889,4 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   }
 
 }
-
-// ----------------------------------------------------------------------------
-enum _GachaPhase { waitingShake, rollingSuspense, revealed }
-
-class _GachaShakeDestinationDialog extends StatefulWidget {
-  final List<DestinationModel> availableDestinations;
-  final List<TripItemModel> existingItems;
-  final Function(DestinationModel) onAddDestination;
-
-  const _GachaShakeDestinationDialog({
-    required this.availableDestinations,
-    required this.existingItems,
-    required this.onAddDestination,
-  });
-
-  @override
-  State<_GachaShakeDestinationDialog> createState() => _GachaShakeDestinationDialogState();
-}
-
-class _GachaShakeDestinationDialogState extends State<_GachaShakeDestinationDialog>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  StreamSubscription<AccelerometerEvent>? _dialogShakeSub;
-  Timer? _shufflingTimer;
-  Timer? _countdownTimer;
-
-  _GachaPhase _phase = _GachaPhase.waitingShake;
-  String _rollingStepText = '⚡ Goyangan HP Terdeteksi! Mengacak rute...';
-  String _currentCandidateName = 'Menyiapkan opsi destinasi...';
-  DestinationModel? _revealedDestination;
-  double _currentGForce = 9.8;
-  DateTime _lastDialogShake = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    )..repeat(reverse: true);
-
-    _initDialogSensor();
-  }
-
-  void _initDialogSensor() {
-    try {
-      _dialogShakeSub = accelerometerEventStream().listen(
-        (event) {
-          if (!mounted || _phase != _GachaPhase.waitingShake) return;
-          final double gForce = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-          setState(() {
-            _currentGForce = gForce;
-          });
-
-          // Deteksi hentakan fisik ponsel (> 13.5 m/s^2)
-          if (gForce > 13.5) {
-            final now = DateTime.now();
-            if (now.difference(_lastDialogShake).inMilliseconds > 1200) {
-              _lastDialogShake = now;
-              _triggerRollSuspense();
-            }
-          }
-        },
-        onError: (err) {
-          debugPrint('Shake sensor in dialog error: $err');
-        },
-      );
-    } catch (e) {
-      debugPrint('Shake sensor in dialog catch: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    _dialogShakeSub?.cancel();
-    _shufflingTimer?.cancel();
-    _countdownTimer?.cancel();
-    _animController.dispose();
-    super.dispose();
-  }
-
-  void _triggerRollSuspense() {
-    _shufflingTimer?.cancel();
-    _countdownTimer?.cancel();
-
-    setState(() {
-      _phase = _GachaPhase.rollingSuspense;
-      _rollingStepText = '⚡ Goyangan HP Terdeteksi! Mengacak rute...';
-    });
-
-    HapticFeedback.heavyImpact();
-
-    final rand = Random();
-    int shuffleIndex = 0;
-    _shufflingTimer = Timer.periodic(const Duration(milliseconds: 90), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      shuffleIndex++;
-      final candidate = widget.availableDestinations[rand.nextInt(widget.availableDestinations.length)];
-      setState(() {
-        _currentCandidateName = candidate.name;
-        if (shuffleIndex == 7) {
-          _rollingStepText = '⛰️ Menganalisis spot lereng Merapi...';
-        } else if (shuffleIndex == 14) {
-          _rollingStepText = '✨ Destinasi kejutan ditemukan!';
-        }
-      });
-    });
-
-    // Jeda suspense 2.1 detik layaknya gacha
-    _countdownTimer = Timer(const Duration(milliseconds: 2100), () {
-      if (!mounted) return;
-      _shufflingTimer?.cancel();
-
-      // Utamakan destinasi yang belum ada di itinerary trip
-      final unadded = widget.availableDestinations.where((d) {
-        return !widget.existingItems.any((item) => item.destinationId == d.id);
-      }).toList();
-
-      final pool = unadded.isNotEmpty ? unadded : widget.availableDestinations;
-      final selected = pool[rand.nextInt(pool.length)];
-
-      HapticFeedback.heavyImpact();
-
-      setState(() {
-        _revealedDestination = selected;
-        _phase = _GachaPhase.revealed;
-      });
-    });
-  }
-
-  void _resetToWaitingShake() {
-    setState(() {
-      _phase = _GachaPhase.waitingShake;
-    });
-    _animController.repeat(reverse: true);
-    HapticFeedback.lightImpact();
-  }
-
-  String _formatCurrency(double price) {
-    if (price <= 0) return 'Gratis';
-    final formatter = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    );
-    return formatter.format(price);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDimensions.radiusXl),
-      ),
-      backgroundColor: AppColors.surfaceContainerLowest,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppDimensions.margin),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: _buildCurrentPhaseView(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentPhaseView() {
-    switch (_phase) {
-      case _GachaPhase.waitingShake:
-        return _buildWaitingShakeView();
-      case _GachaPhase.rollingSuspense:
-        return _buildRollingSuspenseView();
-      case _GachaPhase.revealed:
-        return _buildRevealedView();
-    }
-  }
-
-  // 1. PHASE 1: Menunggu HP Digoyang (Shake Listener Aktif)
-  Widget _buildWaitingShakeView() {
-    return Column(
-      key: const ValueKey('waiting_shake_view'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 8),
-
-        // Visual Smartphone Shaking
-        _buildSmartphoneGraphic(isShaking: true, isPulsing: false),
-        const SizedBox(height: 20),
-
-        // Main Instruction
-        Text(
-          'Goyangkan Ponselmu Sekarang!',
-          style: AppTypography.titleLarge.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.onSurface,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-
-        Text(
-          'Kocok HP fisikmu ke kiri dan kanan. Sensor akselerometer akan otomatis memilihkan destinasi terbaik di lereng Merapi.',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.onSurfaceVariant,
-            height: 1.4,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-
-        // Status Sensor Aktif Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.secondaryContainer,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-            border: Border.all(
-              color: AppColors.primary.withAlpha(60),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Sensor Akselerometer Siaga: ${_currentGForce.toStringAsFixed(1)} m/s²',
-                  style: AppTypography.labelSm.copyWith(
-                    color: AppColors.onSecondaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Tombol Simulasi Manual (Fallback Emulator / Desktop)
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: BorderSide(color: AppColors.primary.withAlpha(120)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-            ),
-          ),
-          onPressed: _triggerRollSuspense,
-          icon: const Icon(Icons.touch_app, size: 18),
-          label: const Text(
-            'Simulasi Goyang HP (Ketuk Manual)',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-      ],
-    );
-  }
-
-  // 2. PHASE 2: Animasi Jeda Suspense Gacha
-  Widget _buildRollingSuspenseView() {
-    return Column(
-      key: const ValueKey('rolling_suspense_view'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 8),
-
-        // Visual Smartphone Shaking & Glowing
-        _buildSmartphoneGraphic(isShaking: true, isPulsing: true),
-        const SizedBox(height: 20),
-
-        // Rolling Step Status Text
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            _rollingStepText,
-            key: ValueKey(_rollingStepText),
-            style: AppTypography.titleMedium.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(height: 6),
-
-        Text(
-          'Sedang mengocok destinasi terbaik lereng Merapi...',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-
-        // Rapid Shuffling Candidate Ticker Box
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-            border: Border.all(
-              color: AppColors.primary.withAlpha(80),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.location_on, size: 16, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  _currentCandidateName,
-                  style: AppTypography.labelLarge.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Progress line
-        const ClipRRect(
-          borderRadius: BorderRadius.all(Radius.circular(4)),
-          child: SizedBox(
-            width: 140,
-            child: LinearProgressIndicator(
-              minHeight: 4,
-              backgroundColor: AppColors.surfaceContainer,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-      ],
-    );
-  }
-
-  // 3. PHASE 3: Hasil Destinasi Terpilih (Reveal)
-  Widget _buildRevealedView() {
-    final dest = _revealedDestination;
-    if (dest == null) return const SizedBox.shrink();
-
-    return Column(
-      key: const ValueKey('revealed_view'),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Celebratory Header Pill
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFC58A32).withAlpha(25),
-              borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-              border: Border.all(color: const Color(0xFFC58A32).withAlpha(120)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, color: Color(0xFFC58A32), size: 16),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'DESTINASI KEJUTAN TERPILIH!',
-                    style: AppTypography.labelSm.copyWith(
-                      color: const Color(0xFFC58A32),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Destination Card
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
-            border: Border.all(color: AppColors.surfaceContainer),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Hero Image with Overlays
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppDimensions.radiusLg)),
-                child: Stack(
-                  children: [
-                    SizedBox(
-                      height: 140,
-                      width: double.infinity,
-                      child: dest.imageUrl != null && dest.imageUrl!.startsWith('http')
-                          ? Image.network(
-                              dest.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                color: AppColors.primaryContainer,
-                                child: const Center(
-                                  child: Icon(Icons.landscape, size: 40, color: Colors.white70),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: AppColors.primaryContainer,
-                              child: const Center(
-                                child: Icon(Icons.landscape, size: 40, color: Colors.white70),
-                              ),
-                            ),
-                    ),
-                    // Kategori Tag
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha(220),
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                        ),
-                        child: Text(
-                          dest.categoryName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // MDPL Badge
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(160),
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-                        ),
-                        child: Text(
-                          '${dest.elevationMdpl} mdpl',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      dest.name,
-                      style: AppTypography.titleLarge.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.confirmation_number_outlined, size: 14, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Tiket: ${_formatCurrency(dest.ticketPrice)}',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.location_on_outlined, size: 14, color: AppColors.onSurfaceVariant),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            dest.address,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      dest.description,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Action Buttons
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-              ),
-              elevation: 2,
-            ),
-            onPressed: () {
-              widget.onAddDestination(dest);
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.check_circle, size: 20),
-            label: const FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'Tambahkan ke Rencana Trip',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                  ),
-                ),
-                onPressed: _resetToWaitingShake,
-                icon: const Icon(Icons.screen_rotation_alt, size: 18),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Goyang HP Lagi (Kocok Ulang)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // Visual Ilustrasi Smartphone Bergetar / Bergoyang
-  Widget _buildSmartphoneGraphic({required bool isShaking, required bool isPulsing}) {
-    return AnimatedBuilder(
-      animation: _animController,
-      builder: (context, child) {
-        final angle = isShaking ? sin(_animController.value * pi * 4) * 0.22 : 0.0;
-        final offsetX = isShaking ? sin(_animController.value * pi * 6) * 10.0 : 0.0;
-        final scale = isPulsing ? 1.0 + (sin(_animController.value * pi * 2) * 0.08) : 1.0;
-
-        return Transform.translate(
-          offset: Offset(offsetX, 0),
-          child: Transform.rotate(
-            angle: angle,
-            child: Transform.scale(
-              scale: scale,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  // Outer glowing halo
-                  if (isPulsing)
-                    Container(
-                      width: 100,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withAlpha(90),
-                            blurRadius: 24,
-                            spreadRadius: 6,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Phone Body Frame
-                  Container(
-                    width: 72,
-                    height: 124,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF263238), Color(0xFF1E282D)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isPulsing ? AppColors.primary : const Color(0xFF607D8B),
-                        width: 2.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withAlpha(isPulsing ? 120 : 40),
-                          blurRadius: isPulsing ? 20 : 10,
-                          spreadRadius: isPulsing ? 4 : 1,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Top Speaker Notch
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Container(
-                            width: 18,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: Colors.white38,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-
-                        // Center Screen Display
-                        Container(
-                          width: 58,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: isPulsing
-                                ? AppColors.primaryContainer
-                                : const Color(0xFF101619),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              isPulsing ? Icons.auto_awesome : Icons.vibration,
-                              color: isPulsing ? AppColors.onPrimary : AppColors.primary,
-                              size: 28,
-                            ),
-                          ),
-                        ),
-
-                        // Bottom Home Indicator Bar
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Container(
-                            width: 24,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: Colors.white38,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Left & Right Vibration Arc Icons
-                  Positioned(
-                    left: -18,
-                    child: Icon(
-                      Icons.graphic_eq,
-                      color: AppColors.primary.withAlpha(isShaking ? 220 : 80),
-                      size: 20,
-                    ),
-                  ),
-                  Positioned(
-                    right: -18,
-                    child: Icon(
-                      Icons.graphic_eq,
-                      color: AppColors.primary.withAlpha(isShaking ? 220 : 80),
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 

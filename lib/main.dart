@@ -18,9 +18,7 @@ import 'features/home/home_screen.dart';
 import 'features/map/map_provider.dart';
 import 'features/notification/notification_provider.dart';
 import 'features/notification/notification_screen.dart';
-import 'features/profile/course_feedback_screen.dart';
 import 'features/profile/profile_screen.dart';
-import 'features/sensor/sensor_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'core/config/supabase_config.dart';
@@ -65,7 +63,6 @@ class MeraTripApp extends StatelessWidget {
   final DestinationProvider? destinationProvider;
   final TripProvider? tripProvider;
   final MapProvider? mapProvider;
-  final SensorProvider? sensorProvider;
   final NotificationProvider? notificationProvider;
 
   const MeraTripApp({
@@ -74,7 +71,6 @@ class MeraTripApp extends StatelessWidget {
     this.destinationProvider,
     this.tripProvider,
     this.mapProvider,
-    this.sensorProvider,
     this.notificationProvider,
   });
 
@@ -104,12 +100,6 @@ class MeraTripApp extends StatelessWidget {
           ChangeNotifierProvider<MapProvider>.value(value: mapProvider!)
         else
           ChangeNotifierProvider<MapProvider>(create: (_) => MapProvider()),
-        if (sensorProvider != null)
-          ChangeNotifierProvider<SensorProvider>.value(value: sensorProvider!)
-        else
-          ChangeNotifierProvider<SensorProvider>(
-            create: (_) => SensorProvider(),
-          ),
         if (notificationProvider != null)
           ChangeNotifierProvider<NotificationProvider>.value(
             value: notificationProvider!,
@@ -202,8 +192,6 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
       case 1:
         return 'Explore Merapi';
       case 3:
-        return 'Evaluasi PAM';
-      case 4:
         return 'Profil Wisatawan';
       default:
         return null; // Menampilkan logo & nama MeraTrip di Top AppBar untuk Home (0) dan MyTrip (2)
@@ -390,7 +378,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _currentTabIndex = 4;
+                  _currentTabIndex = 3;
                 });
               },
               child: CircleAvatar(
@@ -424,7 +412,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
       ],
       // [MODUL 4 - Indexed Navigation] Mengganti halaman berdasarkan _currentTabIndex tanpa menumpuk stack
       body: IndexedStack(
-        index: _currentTabIndex.clamp(0, 4),
+        index: _currentTabIndex.clamp(0, 3),
         children: [
           HomeScreen(
             onNavigateTab: (idx) {
@@ -435,7 +423,6 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
           ),
           const ExploreScreen(),
           const MyTripScreen(),
-          const CourseFeedbackScreen(isTab: true),
           ProfileScreen(
             onNavigateTab: (idx) {
               setState(() {
@@ -458,7 +445,7 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
             unselectedItemColor: AppColors.onSurfaceVariant,
             // [MODUL 4 - BottomNavigationBar] onTap memperbarui index dan memanggil setState() untuk rebuild UI
             onTap: (index) {
-              if (index == 5) {
+              if (index == 4) {
                 _showLogoutConfirmation(context, authProvider);
                 return;
               }
@@ -481,11 +468,6 @@ class _MeraTripShellScreenState extends State<MeraTripShellScreen> {
                 icon: Icon(Icons.map_outlined),
                 activeIcon: Icon(Icons.map_rounded),
                 label: 'MyTrip',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.school_outlined),
-                activeIcon: Icon(Icons.school_rounded),
-                label: 'PAM',
               ),
               BottomNavigationBarItem(
                 icon: _buildNavAvatar(

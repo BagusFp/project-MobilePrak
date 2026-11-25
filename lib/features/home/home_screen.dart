@@ -7,7 +7,6 @@ import '../auth/auth_provider.dart';
 import '../explore/destination_detail_screen.dart';
 import '../explore/destination_provider.dart';
 import '../map/map_screen.dart';
-import '../sensor/sensor_compass_screen.dart';
 import '../trip/create_trip_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -204,14 +203,9 @@ class HomeScreen extends StatelessWidget {
                         icon: Icons.explore_outlined,
                         iconBgColor: const Color(0xFFFEF3C7),
                         iconColor: const Color(0xFFB45309),
-                        title: 'Kompas',
-                        subtitle: 'Arah Merapi',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SensorCompassScreen()),
-                          );
-                        },
+                        title: 'Explore',
+                        subtitle: 'Wisata Merapi',
+                        onTap: () => onNavigateTab?.call(1),
                       ),
                     ),
                   ],

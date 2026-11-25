@@ -32,8 +32,9 @@ class NotificationService {
     if (_isInitialized) return;
     onNotificationClick = onClick;
 
-    final isTest =
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
     if (isTest) {
       _isInitialized = true;
       return;
@@ -55,10 +56,10 @@ class NotificationService {
 
       const DarwinInitializationSettings iosSettings =
           DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
+            requestAlertPermission: true,
+            requestBadgePermission: true,
+            requestSoundPermission: true,
+          );
 
       const InitializationSettings initSettings = InitializationSettings(
         android: androidSettings,
@@ -76,7 +77,8 @@ class NotificationService {
       // 3. Buat Android Notification Channel dengan Prioritas Tertinggi (Heads-up pop up)
       final androidPlugin = _localNotifPlugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
       if (androidPlugin != null) {
         const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -105,7 +107,8 @@ class NotificationService {
     try {
       final androidPlugin = _localNotifPlugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         final granted = await androidPlugin.requestNotificationsPermission();
         return granted ?? true;
@@ -234,7 +237,9 @@ class NotificationService {
     }
 
     if (diff < Duration.zero) {
-      debugPrint('NotificationService: Waktu pengingat $triggerTime sudah lewat, tidak dijadwalkan.');
+      debugPrint(
+        'NotificationService: Waktu pengingat $triggerTime sudah lewat, tidak dijadwalkan.',
+      );
       return;
     }
 
@@ -250,7 +255,9 @@ class NotificationService {
         actionText: 'Lihat Detail Trip',
       );
       _activeTimers.remove(tripId);
-      debugPrint('NotificationService: In-memory timer fired for trip #$tripId');
+      debugPrint(
+        'NotificationService: In-memory timer fired for trip #$tripId',
+      );
     });
 
     if (_isTestEnv) return;
@@ -280,7 +287,9 @@ class NotificationService {
           payload: '/trip/$tripId',
         );
       }
-      debugPrint('NotificationService: Alarm trip #$tripId dijadwalkan pada $triggerTime ($diff lagi)');
+      debugPrint(
+        'NotificationService: Alarm trip #$tripId dijadwalkan pada $triggerTime ($diff lagi)',
+      );
     } catch (e) {
       debugPrint('NotificationService.scheduleTripReminderAtTime warning: $e');
     }
@@ -331,7 +340,9 @@ class NotificationService {
     int? elevationMdpl,
   }) async {
     final title = '📍 Tujuan Selanjutnya: $destinationName';
-    final buffer = StringBuffer('Perjalanan berlanjut ke tujuan ke-$visitOrder.');
+    final buffer = StringBuffer(
+      'Perjalanan berlanjut ke tujuan ke-$visitOrder.',
+    );
     if (plannedTime != null && plannedTime.isNotEmpty) {
       buffer.write(' Jadwal: $plannedTime.');
     }
@@ -368,14 +379,12 @@ class NotificationService {
   }
 
   /// Notifikasi Uji Coba untuk Pengguna
-  Future<void> showTestNotification({
-    String? title,
-    String? body,
-  }) async {
+  Future<void> showTestNotification({String? title, String? body}) async {
     await showInstantNotification(
       id: 9999,
       title: title ?? '🔔 MeraTrip: Notifikasi Ponsel Berhasil!',
-      body: body ??
+      body:
+          body ??
           'Notifikasi ini benar-benar muncul di bilah status ponsel Anda. Sistem pengingat siap digunakan untuk trip Merapi.',
       payload: '/notification',
       category: 'system',
