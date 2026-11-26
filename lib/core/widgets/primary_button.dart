@@ -13,6 +13,8 @@ class PrimaryButton extends StatelessWidget {
   final ButtonVariant variant;
   final double? height;
   final double? width;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   const PrimaryButton({
     super.key,
@@ -23,6 +25,8 @@ class PrimaryButton extends StatelessWidget {
     this.variant = ButtonVariant.primary,
     this.height,
     this.width,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 
   @override
@@ -32,27 +36,31 @@ class PrimaryButton extends StatelessWidget {
     final effectiveHeight = height != null ? height! : (baseHeight * textScale).clamp(baseHeight, 72.0);
 
     if (variant == ButtonVariant.outline) {
+      final outlineColor = foregroundColor ?? AppColors.primary;
       return SizedBox(
         width: width,
         height: effectiveHeight,
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.primary, width: 1.5),
+            backgroundColor: backgroundColor,
+            side: BorderSide(color: outlineColor, width: 1.5),
             padding: const EdgeInsets.symmetric(horizontal: 14.0),
             shape: RoundedRectangleBorder(borderRadius: AppDimensions.roundedMd),
           ),
-          child: _buildChild(AppColors.primary),
+          child: _buildChild(outlineColor),
         ),
       );
     }
 
-    final bgColor = variant == ButtonVariant.secondary
-        ? AppColors.surfaceContainer
-        : AppColors.primary;
-    final fgColor = variant == ButtonVariant.secondary
-        ? AppColors.primary
-        : AppColors.onPrimary;
+    final bgColor = backgroundColor ??
+        (variant == ButtonVariant.secondary
+            ? AppColors.surfaceContainer
+            : AppColors.primary);
+    final fgColor = foregroundColor ??
+        (variant == ButtonVariant.secondary
+            ? AppColors.primary
+            : AppColors.onPrimary);
 
     return SizedBox(
       width: width,

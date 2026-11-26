@@ -561,6 +561,7 @@ class HomeScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Color? cardBgColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -568,7 +569,7 @@ class HomeScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
+          color: cardBgColor ?? AppColors.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.surfaceContainer.withAlpha(120)),
           boxShadow: [

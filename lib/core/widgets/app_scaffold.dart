@@ -11,6 +11,8 @@ class AppScaffold extends StatelessWidget {
   final List<Widget>? actions;
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
+  final Color? backgroundColor;
+  final Color? appBarBackgroundColor;
 
   const AppScaffold({
     super.key,
@@ -22,14 +24,17 @@ class AppScaffold extends StatelessWidget {
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
+    this.backgroundColor,
+    this.appBarBackgroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: backgroundColor ?? AppColors.background,
       appBar: showAppBar
           ? AppBar(
+              backgroundColor: appBarBackgroundColor,
               automaticallyImplyLeading: false,
               leading: showBackButton
                   ? IconButton(
